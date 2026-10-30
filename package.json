@@ -1,0 +1,8 @@
+{
+  "name": "envio-track",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

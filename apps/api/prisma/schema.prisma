@@ -1,0 +1,117 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+enum Role {
+  ADMIN
+  REPARTIDOR
+}
+
+enum PackageStatus {
+  REGISTRADO
+  ASIGNADO
+  EN_RUTA
+  ENTREGADO
+  FALLIDO
+}
+
+enum EventType {
+  CREADO
+  ASIGNADO
+  EN_RUTA
+  ENTREGADO
+  INTENTO_FALLIDO
+}
+
+// ==========================================
+// MODELOS
+// ==========================================
+
+model User {
+  id            String         @id @default(uuid())
+  nombre        String
+  email         String         @unique
+  passwordHash  String
+  rol           Role
+  activo        Boolean        @default(true)
+  creadoEn      DateTime       @default(now())
+
+  paquetes      Package[]      @relation("PaqueteRepartidor")
+  eventos       PackageEvent[] @relation("EventoAutor")
+  eventosAsig   PackageEvent[] @relation("EventoRepartidor")
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiraEn  DateTime
+  revocado  Boolean  @default(false)
+  creadoEn  DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Package {
+  id                   String         @id @default(uuid())
+  guia                 String         @unique
+  destinatario         String
+  telefonoDestinatario String?
+  direccion            String
+  referencias          String?
+  lat                  Float
+  lng                  Float
+  urgente              Boolean        @default(false)
+  estado               PackageStatus  @default(REGISTRADO)
+
+  // Sin SetNull: el paquete conserva la referencia al chofer aunque se desactive
+  repartidorId         String?
+  repartidor           User?          @relation("PaqueteRepartidor", fields: [repartidorId], references: [id], onDelete: Restrict)
+
+  creadoEn             DateTime       @default(now())
+  actualizadoEn        DateTime       @updatedAt
+
+  // Sin Cascade: las evidencias históricas no se borran con el paquete
+  eventos              PackageEvent[]
+
+  @@index([repartidorId, estado])
+}
+
+model PackageEvent {
+  id               String    @id @default(uuid())
+  packageId        String
+  package          Package   @relation(fields: [packageId], references: [id])
+  tipo             EventType
+
+  // Usuario que ejecutó o autorizó la acción (Admin en despacho o Chofer en campo)
+  userId           String
+  user             User      @relation("EventoAutor", fields: [userId], references: [id])
+
+  // ÚNICAMENTE se llena cuando tipo == ASIGNADO (chofer al que se le asignó el paquete)
+  repartidorId     String?
+  repartidor       User?     @relation("EventoRepartidor", fields: [repartidorId], references: [id], onDelete: Restrict)
+
+  motivo           String?   // Motivo en caso de INTENTO_FALLIDO
+  lat              Float?    // Coordenada GPS capturada por el celular
+  lng              Float?
+  fotoUrl          String?   // URL o path de la fotografía de evidencia
+
+  clientEventId    String    @unique  // UUID generado por el cliente (offline) o por el server con randomUUID()
+  requiereRevision Boolean   @default(false) // True si hubo anomalía o entrega fuera de turno
+  ocurridoEn       DateTime           // Momento exacto en que ocurrió en la calle
+  recibidoEn       DateTime  @default(now()) // Momento en que el servidor procesó el evento
+
+  @@index([packageId, ocurridoEn])
+  @@index([requiereRevision])
+}
