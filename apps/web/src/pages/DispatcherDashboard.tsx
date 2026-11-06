@@ -34,6 +34,103 @@ const MOCK_DRIVERS_LIST: DriverItem[] = [
   { id: 'drv-david', nombre: 'David Morales', unidad: 'Van Transit #04', tipo: 'VAN', telefono: '+52 55 5544 3322', activo: false, paquetesAsignados: 0, bateria: 0, zona: 'En Descanso' },
 ];
 
+export type MapThemeKey = 'calles' | 'satelite' | 'osm' | 'dark';
+
+export const MAP_THEMES: Record<MapThemeKey, { name: string; url: string; attribution: string; maxZoom: number }> = {
+  calles: {
+    name: 'Calles a Color (Estilo Google Maps)',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri &mdash; Street Map',
+    maxZoom: 19
+  },
+  satelite: {
+    name: 'Satélite HD',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri World Imagery',
+    maxZoom: 18
+  },
+  osm: {
+    name: 'OpenStreetMap',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap',
+    maxZoom: 19
+  },
+  dark: {
+    name: 'Modo Gris / Nocturno',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri Dark Canvas',
+    maxZoom: 18
+  }
+};
+
+export interface ActiveVehicle {
+  id: string;
+  driverId: string;
+  driverName: string;
+  unit: string;
+  type: 'EV' | 'MOTO' | 'CAMION';
+  icon: string;
+  lat: number;
+  lng: number;
+  battery: number;
+  speed: string;
+  heading: string;
+  color: string;
+  zona: string;
+  paquetesAsignados: number;
+}
+
+export const ACTIVE_FLEET_VEHICLES: ActiveVehicle[] = [
+  {
+    id: 'veh-ana',
+    driverId: 'drv-ana',
+    driverName: 'Ana Martínez',
+    unit: 'Van Eléctrica #01',
+    type: 'EV',
+    icon: '🚐',
+    lat: 19.4245,
+    lng: -99.1660,
+    battery: 94,
+    speed: '36 km/h',
+    heading: 'NE Reforma',
+    color: '#00F5A0',
+    zona: 'Zona Rosa / Cuauhtémoc',
+    paquetesAsignados: 3,
+  },
+  {
+    id: 'veh-carlos',
+    driverId: 'drv-carlos',
+    driverName: 'Carlos Gómez',
+    unit: 'Moto Ágil #03',
+    type: 'MOTO',
+    icon: '🏍️',
+    lat: 19.4340,
+    lng: -99.1915,
+    battery: 88,
+    speed: '44 km/h',
+    heading: 'NW Polanco',
+    color: '#FF5E00',
+    zona: 'Polanco / Chapultepec',
+    paquetesAsignados: 1,
+  },
+  {
+    id: 'veh-roberto',
+    driverId: 'drv-roberto',
+    driverName: 'Roberto Sánchez',
+    unit: 'Camión Isuzu #02',
+    type: 'CAMION',
+    icon: '🚚',
+    lat: 19.3490,
+    lng: -99.1625,
+    battery: 78,
+    speed: '28 km/h',
+    heading: 'SE Coyoacán',
+    color: '#38BDF8',
+    zona: 'Coyoacán Sur',
+    paquetesAsignados: 1,
+  },
+];
+
 const INITIAL_PACKAGES_RENE: PackageRecord[] = [
   {
     id: 'pkg-104920',
@@ -250,7 +347,15 @@ export const DispatcherDashboard: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const vehiclesLayerRef = useRef<L.LayerGroup | null>(null);
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
+  const currentTileLayerRef = useRef<L.TileLayer | null>(null);
+  const currentRefLayerRef = useRef<L.TileLayer | null>(null);
+
+  // Estados de Configuración del Mapa
+  const [mapTheme, setMapTheme] = useState<MapThemeKey>('calles'); // Calles a Color por defecto
+  const [showVehicles, setShowVehicles] = useState<boolean>(true);
+  const [showPackages, setShowPackages] = useState<boolean>(true);
   const [mapReady, setMapReady] = useState(0);
 
   // Inicialización de Leaflet cuando se activa la pestaña de Mapa
@@ -259,6 +364,8 @@ export const DispatcherDashboard: React.FC = () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        currentTileLayerRef.current = null;
+        currentRefLayerRef.current = null;
       }
       return;
     }
@@ -276,21 +383,21 @@ export const DispatcherDashboard: React.FC = () => {
         zoomControl: false,
       });
 
-      // Capa Esri World Dark Gray sin API key ni marcas de agua
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '&copy; Esri',
-        maxZoom: 18,
+      // Cargar capa inicial (Calles con color estilo Google Maps)
+      const theme = MAP_THEMES[mapTheme];
+      const tileLayer = L.tileLayer(theme.url, {
+        attribution: theme.attribution,
+        maxZoom: theme.maxZoom,
       }).addTo(map);
-
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '',
-        maxZoom: 18,
-      }).addTo(map);
+      currentTileLayerRef.current = tileLayer;
 
       L.control.zoom({ position: 'bottomright' }).addTo(map);
 
       const markersLayer = L.layerGroup().addTo(map);
       markersLayerRef.current = markersLayer;
+
+      const vehiclesLayer = L.layerGroup().addTo(map);
+      vehiclesLayerRef.current = vehiclesLayer;
 
       const routeLayer = L.layerGroup().addTo(map);
       routeLayerRef.current = routeLayer;
@@ -305,59 +412,173 @@ export const DispatcherDashboard: React.FC = () => {
     };
   }, [mainNavTab]);
 
-  // Dibujar marcadores en el mapa
+  // Cambiar tema de mapa dinámicamente sin recargar la página
   useEffect(() => {
-    if (mainNavTab !== 'mapa' || !mapInstanceRef.current || !markersLayerRef.current || !routeLayerRef.current) return;
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    if (currentTileLayerRef.current) {
+      map.removeLayer(currentTileLayerRef.current);
+      currentTileLayerRef.current = null;
+    }
+    if (currentRefLayerRef.current) {
+      map.removeLayer(currentRefLayerRef.current);
+      currentRefLayerRef.current = null;
+    }
+
+    const theme = MAP_THEMES[mapTheme];
+    const newTile = L.tileLayer(theme.url, {
+      attribution: theme.attribution,
+      maxZoom: theme.maxZoom,
+    }).addTo(map);
+    currentTileLayerRef.current = newTile;
+
+    if (mapTheme === 'dark') {
+      const refLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '',
+        maxZoom: 18,
+      }).addTo(map);
+      currentRefLayerRef.current = refLayer;
+    } else if (mapTheme === 'satelite') {
+      const refLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '',
+        maxZoom: 18,
+      }).addTo(map);
+      currentRefLayerRef.current = refLayer;
+    }
+  }, [mapTheme]);
+
+  // Dibujar marcadores de Camiones/Camionetas y Paradas de Paquetes
+  useEffect(() => {
+    if (mainNavTab !== 'mapa' || !mapInstanceRef.current || !markersLayerRef.current || !vehiclesLayerRef.current || !routeLayerRef.current) return;
 
     const markersLayer = markersLayerRef.current;
+    const vehiclesLayer = vehiclesLayerRef.current;
     const routeLayer = routeLayerRef.current;
 
     markersLayer.clearLayers();
+    vehiclesLayer.clearLayers();
     routeLayer.clearLayers();
 
     // Trazar línea de ruta 2-opt de Ana Martínez
     const anaRouteCoords: [number, number][] = [
-      [19.4270, -99.1677],
-      [19.4195, -99.1610],
-      [19.3820, -99.1605],
-      [19.4260, -99.1640]
+      [19.4245, -99.1660], // Inicio: Van Ana Martínez
+      [19.4270, -99.1677], // Parada 1: ET-104920 (Reforma)
+      [19.4195, -99.1610], // Parada 2: ET-104921 (Roma Norte)
+      [19.3820, -99.1605], // Parada 3: ET-104925 (Del Valle)
+      [19.4260, -99.1640]  // Parada 4: ET-104926 (Juárez)
     ];
     L.polyline(anaRouteCoords, {
       color: '#00F5A0',
-      weight: 3,
-      opacity: 0.85,
-      dashArray: '6, 6'
+      weight: 3.5,
+      opacity: 0.9,
+      dashArray: '8, 8'
     }).addTo(routeLayer);
 
-    packages.forEach((pkg) => {
-      const pinColor = pkg.urgente ? '#FF5E00' : pkg.estado === 'ENTREGADO' ? '#10B981' : pkg.estado === 'FALLIDO' ? '#EF4444' : '#00E5FF';
-
-      const customIcon = L.divIcon({
-        className: 'custom-package-pin',
-        html: `
-          <div class="px-2 py-1 rounded bg-[#0E141D] text-white border text-[11px] font-mono font-bold shadow-lg flex items-center gap-1.5"
-               style="border-color: ${pinColor}; box-shadow: 0 0 10px ${pinColor}40;">
-            <span class="w-2 h-2 rounded-full" style="background-color: ${pinColor};"></span>
-            <span>${pkg.guia}</span>
-            ${pkg.urgente ? `<span class="text-[9px] px-1 rounded bg-red-500/20 text-red-400">⚡</span>` : ''}
+    // 1. DIBUJAR VEHÍCULOS (Camionetas, Camiones y Motos en Ruta)
+    if (showVehicles) {
+      ACTIVE_FLEET_VEHICLES.forEach((veh) => {
+        const vehicleHtml = `
+          <div style="position: relative; display: inline-flex; align-items: center; cursor: pointer; white-space: nowrap; transform: translate(-50%, -50%);">
+            <div style="display: flex; align-items: center; gap: 7px; background: rgba(11, 17, 30, 0.95); border: 2px solid ${veh.color}; border-radius: 9999px; padding: 3px 10px 3px 5px; box-shadow: 0 4px 16px rgba(0,0,0,0.6), 0 0 14px ${veh.color}80; color: #fff; font-family: 'Inter', sans-serif;">
+              <div style="position: relative; width: 28px; height: 28px; border-radius: 9999px; background: ${veh.color}; display: flex; align-items: center; justify-content: center; font-size: 15px; box-shadow: 0 0 10px ${veh.color};">
+                <span>${veh.icon}</span>
+                <span class="animate-ping-slow" style="position: absolute; inset: -3px; border-radius: 9999px; border: 2px solid ${veh.color}; pointer-events: none;"></span>
+              </div>
+              <div style="display: flex; flex-direction: column; text-align: left; line-height: 1.15;">
+                <div style="font-weight: 800; font-size: 11px; color: #FFFFFF; display: flex; align-items: center; gap: 4px;">
+                  <span>${veh.driverName}</span>
+                  <span style="font-size: 9px; padding: 1px 5px; border-radius: 4px; background: ${veh.color}25; color: ${veh.color}; font-family: monospace; font-weight: bold; border: 1px solid ${veh.color}60;">${veh.unit}</span>
+                </div>
+                <div style="font-size: 9px; color: #94A3B8; display: flex; align-items: center; gap: 6px; font-family: monospace;">
+                  <span>⚡ ${veh.battery}%</span>
+                  <span>•</span>
+                  <span>🏎️ ${veh.speed}</span>
+                  <span>•</span>
+                  <span style="color: #60A5FA;">📦 ${veh.paquetesAsignados} envíos</span>
+                </div>
+              </div>
+            </div>
           </div>
-        `,
-        iconSize: [0, 0],
-        iconAnchor: [0, 0],
-      });
+        `;
 
-      const marker = L.marker([pkg.lat, pkg.lng], { icon: customIcon });
-      marker.bindPopup(`
-        <div class="p-2 text-xs font-sans min-w-[200px]">
-          <div class="font-mono font-bold text-sm text-[${pinColor}]">${pkg.guia}</div>
-          <div class="font-semibold text-slate-100 mt-1">${pkg.destinatario}</div>
-          <div class="text-slate-400 text-[11px] mt-0.5">${pkg.direccion}</div>
-          <div class="mt-2 text-[11px] text-[#00F5A0] font-mono font-bold">Estado: ${pkg.estado}</div>
-        </div>
-      `);
-      marker.addTo(markersLayer);
-    });
-  }, [packages, mainNavTab, mapReady]);
+        const vehicleIcon = L.divIcon({
+          className: 'custom-vehicle-marker',
+          html: vehicleHtml,
+          iconSize: [180, 44],
+          iconAnchor: [90, 22],
+        });
+
+        const marker = L.marker([veh.lat, veh.lng], { icon: vehicleIcon });
+        marker.bindPopup(`
+          <div style="padding: 10px; font-family: 'Inter', sans-serif; min-width: 210px; color: #E2E8F0;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+              <span style="font-size: 22px;">${veh.icon}</span>
+              <div>
+                <div style="font-weight: 800; font-size: 13px; color: #FFF;">${veh.unit}</div>
+                <div style="font-size: 11px; color: ${veh.color}; font-weight: 700;">${veh.driverName}</div>
+              </div>
+            </div>
+            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
+              <div><strong>Sector / Zona:</strong> ${veh.zona}</div>
+              <div><strong>Velocidad Actual:</strong> ${veh.speed} (${veh.heading})</div>
+              <div><strong>Autonomía Batería:</strong> ${veh.battery}%</div>
+              <div><strong>Carga Asignada:</strong> ${veh.paquetesAsignados} paquetes activos</div>
+            </div>
+          </div>
+        `);
+        marker.addTo(vehiclesLayer);
+      });
+    }
+
+    // 2. DIBUJAR PUNTOS DE PARADA / PAQUETES (Pines estilizados sin cuadros rotos)
+    if (showPackages) {
+      packages.forEach((pkg, idx) => {
+        const pinColor = pkg.urgente ? '#EF4444' : pkg.estado === 'ENTREGADO' ? '#10B981' : pkg.estado === 'FALLIDO' ? '#F43F5E' : '#3B82F6';
+        const stopNumber = idx + 1;
+
+        const pinHtml = `
+          <div style="display: inline-flex; flex-direction: column; align-items: center; cursor: pointer; white-space: nowrap; transform: translate(-50%, -100%);">
+            <div style="display: flex; align-items: center; gap: 5px; background: rgba(15, 23, 42, 0.95); border: 1.5px solid ${pinColor}; border-radius: 9999px; padding: 2px 8px 2px 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.6), 0 0 10px ${pinColor}60; color: #fff; font-family: 'JetBrains Mono', monospace;">
+              <span style="width: 18px; height: 18px; border-radius: 9999px; background: ${pinColor}; color: #FFF; font-weight: 900; font-size: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px ${pinColor};">#${stopNumber}</span>
+              <span style="font-size: 11px; font-weight: 700; color: #F8FAFC;">${pkg.guia}</span>
+              ${pkg.urgente ? `<span style="font-size: 9px; font-weight: 800; background: #EF4444; color: #FFF; padding: 1px 4px; border-radius: 4px; box-shadow: 0 0 6px #EF4444;">⚡</span>` : ''}
+            </div>
+            <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid ${pinColor}; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));"></div>
+            <div style="width: 5px; height: 5px; border-radius: 9999px; background: ${pinColor}; box-shadow: 0 0 6px ${pinColor}; margin-top: -2px;"></div>
+          </div>
+        `;
+
+        const customIcon = L.divIcon({
+          className: 'custom-package-pin',
+          html: pinHtml,
+          iconSize: [130, 36],
+          iconAnchor: [65, 36],
+        });
+
+        const marker = L.marker([pkg.lat, pkg.lng], { icon: customIcon });
+        marker.bindPopup(`
+          <div style="padding: 10px; font-family: 'Inter', sans-serif; min-width: 220px; color: #E2E8F0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-family: monospace; font-weight: 800; font-size: 13px; color: ${pinColor};">Parada #${stopNumber} &bull; ${pkg.guia}</span>
+              ${pkg.urgente ? '<span style="font-size: 10px; background: #EF4444; color: #FFF; padding: 1px 5px; border-radius: 4px; font-weight: bold;">⚡ URGENTE</span>' : ''}
+            </div>
+            <div style="font-weight: 700; font-size: 12px; color: #FFF; margin-top: 2px;">${pkg.destinatario}</div>
+            <div style="font-size: 11px; color: #94A3B8; margin-top: 2px;">${pkg.direccion}</div>
+            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 11px; display: flex; justify-content: space-between;">
+              <span style="color: #94A3B8;">Repartidor:</span>
+              <span style="font-weight: 600; color: #60A5FA;">${pkg.repartidor?.nombre || 'Sin chofer'}</span>
+            </div>
+            <div style="font-size: 11px; display: flex; justify-content: space-between; margin-top: 2px;">
+              <span style="color: #94A3B8;">Estado:</span>
+              <span style="font-weight: 700; color: ${pinColor};">${pkg.estado}</span>
+            </div>
+          </div>
+        `);
+        marker.addTo(markersLayer);
+      });
+    }
+  }, [packages, mainNavTab, mapReady, showVehicles, showPackages]);
 
   // Filtrado de paquetes en la tabla
   const filteredPackages = packages.filter((pkg) => {
@@ -917,50 +1138,176 @@ export const DispatcherDashboard: React.FC = () => {
             <div className="flex-1 relative h-full min-h-[550px] bg-[#070B14]">
               <div ref={mapContainerRef} className="w-full h-full min-h-[550px] z-10" />
 
-              {/* Controles Flotantes en el Mapa */}
-              <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-[#0B111E]/95 backdrop-blur-md p-2 rounded-xl border border-slate-800 shadow-xl text-xs font-mono">
-                <span className="text-[#00F5A0] font-bold">RADAR VECTORIAL DISPATCH // CDMX</span>
-                <span className="text-slate-500">|</span>
-                <span className="text-slate-300">Ruta 2-Opt Ana Martínez Activa</span>
+              {/* Controles Flotantes Superiores en el Mapa */}
+              <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2 bg-[#0B111E]/95 backdrop-blur-md p-2 rounded-2xl border border-slate-800 shadow-2xl text-xs font-mono max-w-[calc(100%-2rem)]">
+                
+                {/* Selector de Estilo de Mapa */}
+                <div className="flex items-center gap-1 bg-[#070B14] p-1 rounded-xl border border-slate-800">
+                  <button
+                    onClick={() => setMapTheme('calles')}
+                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 ${
+                      mapTheme === 'calles' ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Calles a Color (Estilo Google Maps)"
+                  >
+                    <span>🗺️ Calles a Color</span>
+                  </button>
+                  <button
+                    onClick={() => setMapTheme('satelite')}
+                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 ${
+                      mapTheme === 'satelite' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Satélite Fotográfico Real HD"
+                  >
+                    <span>🛰️ Satélite HD</span>
+                  </button>
+                  <button
+                    onClick={() => setMapTheme('osm')}
+                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 ${
+                      mapTheme === 'osm' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="OpenStreetMap Estándar"
+                  >
+                    <span>🌍 OpenStreet</span>
+                  </button>
+                  <button
+                    onClick={() => setMapTheme('dark')}
+                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 ${
+                      mapTheme === 'dark' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Modo Nocturno / Gris"
+                  >
+                    <span>🌙 Modo Gris</span>
+                  </button>
+                </div>
+
+                <div className="h-5 w-[1px] bg-slate-800 hidden md:block"></div>
+
+                {/* Toggles de Camiones / Flota y Paradas */}
+                <div className="flex items-center gap-1 bg-[#070B14] p-1 rounded-xl border border-slate-800">
+                  <button
+                    onClick={() => setShowVehicles(!showVehicles)}
+                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 ${
+                      showVehicles ? 'bg-[#00F5A0] text-slate-950 shadow' : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    <span>🚚 Camionetas Flota ({ACTIVE_FLEET_VEHICLES.length})</span>
+                    <span className={`w-2 h-2 rounded-full ${showVehicles ? 'bg-slate-950' : 'bg-slate-700'}`}></span>
+                  </button>
+                  <button
+                    onClick={() => setShowPackages(!showPackages)}
+                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 ${
+                      showPackages ? 'bg-blue-500 text-white shadow' : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    <span>📦 Paradas Envíos ({packages.length})</span>
+                    <span className={`w-2 h-2 rounded-full ${showPackages ? 'bg-white' : 'bg-slate-700'}`}></span>
+                  </button>
+                </div>
+
+                {/* Botón de Recentrado */}
+                <button
+                  onClick={() => {
+                    if (mapInstanceRef.current) {
+                      mapInstanceRef.current.flyTo([19.4270, -99.1677], 13);
+                    }
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-[#0F172A] border border-slate-700 text-slate-300 hover:text-white hover:border-blue-400 text-[11px] font-bold flex items-center gap-1 transition"
+                  title="Centrar en CDMX"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>Centrar</span>
+                </button>
               </div>
             </div>
 
-            {/* Sidebar lateral del Mapa: Cola de Envíos */}
+            {/* Sidebar lateral del Mapa: Camionetas y Cola de Envíos */}
             <div className="w-80 bg-[#0B111E] border-l border-slate-800 flex flex-col h-full shadow-2xl z-20 p-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <span className="font-bold text-sm text-white">COLA DE EN RUTA</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-blue-600/20 text-blue-400 font-bold">
-                  {packages.filter((p) => p.estado === 'EN_RUTA').length} ACTIVOS
-                </span>
-              </div>
-
-              <div className="flex-1 overflow-y-auto py-3 space-y-2.5">
-                {packages.filter((p) => p.estado === 'EN_RUTA').map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    onClick={() => {
-                      if (mapInstanceRef.current) {
-                        mapInstanceRef.current.flyTo([pkg.lat, pkg.lng], 15);
-                      }
-                    }}
-                    className="p-3 rounded-xl bg-[#0F172A] border border-slate-800 hover:border-blue-500 cursor-pointer transition"
-                  >
-                    <div className="flex justify-between items-center text-xs font-mono">
-                      <span className="text-blue-400 font-bold">{pkg.guia}</span>
-                      <span className="text-amber-400 font-semibold">{pkg.eta}</span>
+              
+              {/* Sección 1: Camionetas en Ruta */}
+              <div className="pb-3 border-b border-slate-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🚚 FLOTA EN RUTA</span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-bold">
+                    {ACTIVE_FLEET_VEHICLES.length} UNIDADES
+                  </span>
+                </div>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {ACTIVE_FLEET_VEHICLES.map((veh) => (
+                    <div
+                      key={veh.id}
+                      onClick={() => {
+                        if (mapInstanceRef.current) {
+                          mapInstanceRef.current.flyTo([veh.lat, veh.lng], 16);
+                        }
+                      }}
+                      className="p-2 rounded-xl bg-[#070B14] border border-slate-800 hover:border-[#00F5A0] cursor-pointer transition flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{veh.icon}</span>
+                        <div>
+                          <div className="font-bold text-white text-[11px]">{veh.driverName}</div>
+                          <div className="text-[10px] text-slate-400">{veh.unit}</div>
+                        </div>
+                      </div>
+                      <div className="text-right text-[10px] font-mono">
+                        <div className="text-emerald-400 font-bold">⚡ {veh.battery}%</div>
+                        <div className="text-slate-500">{veh.speed}</div>
+                      </div>
                     </div>
-                    <div className="text-xs text-white font-semibold mt-1 truncate">{pkg.destinatario}</div>
-                    <div className="text-[11px] text-slate-400 truncate mt-0.5">{pkg.direccion}</div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
-              <button
-                onClick={() => setIsNewPackageModalOpen(true)}
-                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg transition"
-              >
-                + Alta Rápida de Envío
-              </button>
+              {/* Sección 2: Cola de Envíos En Ruta */}
+              <div className="flex-1 flex flex-col min-h-0 pt-3">
+                <div className="flex items-center justify-between pb-2">
+                  <span className="font-bold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <span>📦 PARADAS ASIGNADAS</span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-blue-600/20 text-blue-400 font-bold">
+                    {packages.filter((p) => p.estado === 'EN_RUTA').length} EN CAMINO
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto py-1 space-y-2 pr-1">
+                  {packages.filter((p) => p.estado === 'EN_RUTA').map((pkg, idx) => (
+                    <div
+                      key={pkg.id}
+                      onClick={() => {
+                        if (mapInstanceRef.current) {
+                          mapInstanceRef.current.flyTo([pkg.lat, pkg.lng], 16);
+                        }
+                      }}
+                      className="p-2.5 rounded-xl bg-[#0F172A] border border-slate-800 hover:border-blue-500 cursor-pointer transition"
+                    >
+                      <div className="flex justify-between items-center text-xs font-mono">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center">
+                            #{idx + 1}
+                          </span>
+                          <span className="text-blue-400 font-bold">{pkg.guia}</span>
+                        </div>
+                        <span className="text-amber-400 font-semibold text-[11px]">{pkg.eta}</span>
+                      </div>
+                      <div className="text-xs text-white font-semibold mt-1 truncate">{pkg.destinatario}</div>
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5">{pkg.direccion}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 mt-2">
+                <button
+                  onClick={() => setIsNewPackageModalOpen(true)}
+                  className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg transition flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Alta Rápida de Envío</span>
+                </button>
+              </div>
             </div>
 
           </div>

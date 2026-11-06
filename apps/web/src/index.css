@@ -85,6 +85,30 @@ body {
   animation: beacon-glow 2s infinite ease-in-out;
 }
 
+/* Fix Leaflet Div Icon defaults so it doesn't wrap or collapse into a 12px box */
+.custom-vehicle-marker,
+.custom-package-pin {
+  background: transparent !important;
+  border: none !important;
+  overflow: visible !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+@keyframes ping-slow {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  75%, 100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+.animate-ping-slow {
+  animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 /* Custom Minimalist Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
