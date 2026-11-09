@@ -12,7 +12,6 @@ import {
   ArrowRight,
   ShieldCheck,
   Radio,
-  Navigation,
   Compass,
   Search,
   Lock
@@ -150,36 +149,14 @@ export const LoginPage: React.FC = () => {
               Centro de Mando
             </h1>
             <p className="text-xs text-slate-400">
-              Ingresa tus credenciales de operador o chofer para acceder a la consola táctica de despacho.
+              Consola web de administración, recepción y despacho logístico en tiempo real.
             </p>
           </div>
 
-          {/* Selector de Perfil (Despacho vs Flota) */}
-          <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#080E17] rounded-xl border border-white/10">
-            <button
-              type="button"
-              onClick={() => setProfile('despacho')}
-              className={`py-2 px-3 rounded-lg text-xs font-mono font-semibold transition flex items-center justify-center gap-1.5 ${
-                profile === 'despacho'
-                  ? 'bg-[#00F5A0] text-[#080E17] shadow-[0_0_12px_rgba(0,245,160,0.3)] font-bold'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5" />
-              <span>Panel Despacho</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setProfile('ruta')}
-              className={`py-2 px-3 rounded-lg text-xs font-mono font-semibold transition flex items-center justify-center gap-1.5 ${
-                profile === 'ruta'
-                  ? 'bg-[#00F5A0] text-[#080E17] shadow-[0_0_12px_rgba(0,245,160,0.3)] font-bold'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Navigation className="w-3.5 h-3.5" />
-              <span>Consola de Ruta</span>
-            </button>
+          {/* Indicador de Consola Central */}
+          <div className="py-2.5 px-3 rounded-xl bg-[#080E17] border border-slate-800 text-center text-xs font-mono text-[#00F5A0] font-bold flex items-center justify-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-[#00F5A0]" />
+            <span>Consola Central de Despacho & Recepción</span>
           </div>
 
           {/* Botón de Acceso Rápido Directo */}
@@ -307,29 +284,17 @@ export const LoginPage: React.FC = () => {
               <span>CREDENCIALES DE PRUEBA:</span>
               <span className="text-[#00F5A0]">Click para autollenar y entrar</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               <button
                 type="button"
                 onClick={() => fillAndLogin('admin@droptrack.com', 'cambiar123', 'despacho')}
                 className="p-2.5 bg-[#141C2B] border border-[#00F5A0]/30 hover:border-[#00F5A0] rounded-xl text-left transition hover:bg-[#161F2E] group"
               >
                 <div className="font-bold text-[#00F5A0] text-xs flex items-center justify-between">
-                  <span>Despachador</span>
+                  <span>Operador de Despacho & Recepción</span>
                   <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
                 </div>
-                <div className="text-[10px] text-slate-400 truncate">admin@droptrack.com</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillAndLogin('xochitl@droptrack.com', 'cambiar123', 'ruta')}
-                className="p-2.5 bg-[#141C2B] border border-[#4CD6FB]/30 hover:border-[#4CD6FB] rounded-xl text-left transition hover:bg-[#161F2E] group"
-              >
-                <div className="font-bold text-[#4CD6FB] text-xs flex items-center justify-between">
-                  <span>Chofer Ruta</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
-                </div>
-                <div className="text-[10px] text-slate-400 truncate">xochitl@droptrack.com</div>
+                <div className="text-[10px] text-slate-400">admin@droptrack.com &bull; Acceso Total a Consola Web</div>
               </button>
             </div>
           </div>

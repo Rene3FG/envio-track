@@ -16,12 +16,10 @@ import {
   ShieldCheck,
   Navigation,
   Eye,
-  Smartphone,
   BarChart3,
   Users,
   Compass,
-  Camera,
-  Check
+  Camera
 } from 'lucide-react';
 
 // ==========================================
@@ -309,8 +307,8 @@ export const DispatcherDashboard: React.FC = () => {
   const [packages, setPackages] = useState<PackageRecord[]>(INITIAL_PACKAGES_RENE);
   const [drivers] = useState<DriverItem[]>(MOCK_DRIVERS_LIST);
   
-  // Pestaña Principal Superior (Arquitectura Multiplataforma sugerida por René + Menú Mapa solicitado)
-  const [mainNavTab, setMainNavTab] = useState<'admin' | 'mapa' | 'tracking' | 'chofer'>('admin');
+  // Pestaña Principal Superior (Consola Web Despacho, Radar Táctico y Rastreo Público)
+  const [mainNavTab, setMainNavTab] = useState<'admin' | 'mapa' | 'tracking'>('admin');
   
   // Subpestañas dentro de A. Web Despacho
   const [adminSubTab, setAdminSubTab] = useState<'tabla' | 'choferes' | 'stats'>('tabla');
@@ -702,12 +700,12 @@ export const DispatcherDashboard: React.FC = () => {
               </span>
             </div>
             <div className="text-[11px] text-slate-400 hidden sm:block">
-              Sistema de paquetería multiplataforma (Web ADMIN + Tracking + App Móvil)
+              Consola Web de Despacho & Monitoreo Logístico
             </div>
           </div>
         </div>
 
-        {/* NAVEGACIÓN GLOBAL PRINCIPAL (Rol / Módulo Switcher) */}
+        {/* NAVEGACIÓN GLOBAL PRINCIPAL (Web Despacho, Radar y Rastreo) */}
         <nav className="flex items-center gap-1.5 bg-[#0F172A] p-1 rounded-xl border border-slate-800">
           
           <button
@@ -722,7 +720,7 @@ export const DispatcherDashboard: React.FC = () => {
             <span>A. Web Despacho (ADMIN)</span>
           </button>
 
-          {/* Menú Mapa al lado de A. Web Despacho (Solicitado por el usuario) */}
+          {/* Menú Mapa al lado de A. Web Despacho */}
           <button
             onClick={() => setMainNavTab('mapa')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
@@ -745,18 +743,6 @@ export const DispatcherDashboard: React.FC = () => {
           >
             <Search className="w-4 h-4" />
             <span>C. Rastreo Público</span>
-          </button>
-
-          <button
-            onClick={() => setMainNavTab('chofer')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
-              mainNavTab === 'chofer'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            <Smartphone className="w-4 h-4" />
-            <span>D. App Chofer (Móvil)</span>
           </button>
 
         </nav>
@@ -1507,68 +1493,6 @@ export const DispatcherDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* --------------------------------------------------------- */}
-        {/* VISTA 4: D. APP CHOFER (MÓVIL) - Mockup de celular */}
-        {/* --------------------------------------------------------- */}
-        {mainNavTab === 'chofer' && (
-          <div className="p-6 max-w-sm mx-auto flex flex-col items-center">
-            
-            {/* Marco de Smartphone */}
-            <div className="w-full bg-[#0F172A] rounded-[40px] border-4 border-slate-700 shadow-2xl overflow-hidden p-4 flex flex-col h-[650px]">
-              
-              {/* Barra de Estado del Móvil */}
-              <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 px-2 pb-2 border-b border-slate-800">
-                <span>09:42</span>
-                <div className="flex items-center gap-1.5">
-                  <span>5G</span>
-                  <span>94%</span>
-                </div>
-              </div>
-
-              {/* Header de la App Chofer */}
-              <div className="py-3 px-2 flex justify-between items-center">
-                <div>
-                  <div className="text-xs text-slate-400">Chofer en Turno:</div>
-                  <div className="font-bold text-white text-sm">Ana Martínez</div>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-400 font-bold">
-                  Van #01
-                </span>
-              </div>
-
-              {/* Lista de Paradas 2-OPT */}
-              <div className="flex-1 overflow-y-auto space-y-2 py-2 pr-1">
-                <div className="text-[10px] font-mono text-blue-400 uppercase tracking-wider">
-                  Ruta Óptima 2-OPT (3 Paradas)
-                </div>
-
-                {packages.filter((p) => p.repartidor?.id === 'drv-ana').map((pkg, i) => (
-                  <div key={pkg.id} className="bg-[#0B111E] p-3 rounded-xl border border-slate-800">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-mono font-bold text-blue-400">#{i + 1} {pkg.guia}</span>
-                      <span className="text-[10px] font-mono text-slate-400">{pkg.eta.split(' ')[0]}</span>
-                    </div>
-                    <div className="text-xs text-white font-semibold mt-1 truncate">{pkg.destinatario}</div>
-                    <div className="text-[10px] text-slate-400 truncate">{pkg.direccion}</div>
-
-                    <div className="mt-2 pt-2 border-t border-slate-800/80 flex gap-2">
-                      <button className="flex-1 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] flex items-center justify-center gap-1">
-                        <Check className="w-3 h-3" />
-                        <span>Entregado</span>
-                      </button>
-                      <button className="flex-1 py-1 rounded bg-rose-600/80 hover:bg-rose-500 text-white font-bold text-[10px] flex items-center justify-center gap-1">
-                        <X className="w-3 h-3" />
-                        <span>Fallido</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-            </div>
-
-          </div>
-        )}
 
       </main>
 
