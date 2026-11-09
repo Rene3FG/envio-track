@@ -73,7 +73,7 @@ Los campos y enums salen del esquema Prisma (`apps/api/prisma/schema.prisma`).
 | GET | `/packages/mine/route` | REPARTIDOR | — | 200 `PackageDto[]` activos (ASIGNADO y EN_RUTA) del día, sin ordenar: el orden lo calcula la app con 2-opt |
 
 - `requiereRevision` en el filtro significa: paquetes que tengan al menos un evento con esa marca.
-- `lat` ∈ [-90, 90], `lng` ∈ [-180, 180]; obligatorias.
+- `lat` ∈ [14.5, 32.8], `lng` ∈ [-118.5, -86.5] (rectángulo que cubre México, `MEXICO_BOUNDS` en `shared`); obligatorias. Fuera de rango → 400.
 - **Asignar / reasignar** (`/assignment`): una sola transacción — actualiza `repartidorId` y `estado = ASIGNADO` y crea
   evento `ASIGNADO` con `repartidorId` nuevo. El repartidor debe existir, estar `activo` y ser `REPARTIDOR`, si no → 409.
   No se puede asignar un paquete ENTREGADO → 409. Un FALLIDO sí se puede reasignar (vuelve a ASIGNADO).
@@ -111,7 +111,7 @@ Reglas (idénticas al esquema):
 4. **Doble entrega o chofer reasignado que entrega sin señal**: se **acepta** el ENTREGADO, se guarda, el estado queda
    ENTREGADO y el evento conflictivo se marca `requiereRevision: true`. Visible para el despachador por el filtro.
 5. **INTENTO_FALLIDO**: exige `motivo`; el paquete pasa a FALLIDO.
-6. `motivo` obligatorio solo en INTENTO_FALLIDO; `fotoUrl` opcional (la foto se sube antes con `/upload`).
+6. `motivo` obligatorio en INTENTO_FALLIDO. `ENTREGADO` exige `lat`, `lng` y `fotoUrl` (evidencia; la foto se sube antes con `/upload`). En EN_RUTA son opcionales. Evento sin ellos → `REJECTED` con `INVALID_EVENT`. `fotoUrl` debe ser una ruta de `/upload` (`/uploads/<nombre>.jpg|jpeg|png`); URLs externas → `INVALID_EVENT`.
 7. `REJECTED` solo para eventos malformados o de un paquete inexistente; el resto de eventos del lote se procesa igual.
 8. Un REPARTIDOR solo puede sincronizar eventos de paquetes que **tiene asignados o tuvo asignados**; otro → `REJECTED`
    con `reason: "NOT_YOUR_PACKAGE"`. (Pendiente de confirmar: ver sección 9.)

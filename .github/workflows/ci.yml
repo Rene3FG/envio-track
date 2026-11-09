@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: envio
+          POSTGRES_PASSWORD: envio
+          POSTGRES_DB: envio_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U envio" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://envio:envio@localhost:5432/envio_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generar cliente Prisma
+        run: npx -w @envio/api prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests con cobertura (umbral 80 %, 100 % en optimizer)
+        run: npm run test:cov
+
+      - name: Migraciones en la BD de prueba
+        run: npx -w @envio/api prisma migrate deploy
+
+      - name: Integración contra PostgreSQL
+        run: npm run test:int -w @envio/api
+
+      - name: Subir reportes de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            packages/shared/coverage
+            apps/api/coverage
+          if-no-files-found: ignore
