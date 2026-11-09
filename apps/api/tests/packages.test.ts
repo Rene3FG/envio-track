@@ -346,4 +346,61 @@ describe('Packages Module Integration Tests (/api/packages)', () => {
       expect(res.body[0].estado).toBe('ASIGNADO');
     });
   });
+
+  describe('PATCH /api/packages/:id (Actualización de paquete)', () => {
+    it('debe responder 403 si un REPARTIDOR intenta editar un paquete', async () => {
+      const res = await request(app)
+        .patch('/api/packages/pkg-uuid-1')
+        .set('Authorization', `Bearer ${repartidor1Token}`)
+        .send({ destinatario: 'Nuevo Destinatario' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('debe responder 404 si el paquete no existe', async () => {
+      (prisma.package.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app)
+        .patch('/api/packages/no-existe')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ destinatario: 'Nuevo Destinatario' });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('debe responder 409 si el paquete ya está en estado ENTREGADO', async () => {
+      (prisma.package.findUnique as jest.Mock).mockResolvedValue({
+        ...mockPackage,
+        estado: 'ENTREGADO',
+      });
+
+      const res = await request(app)
+        .patch('/api/packages/pkg-uuid-1')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ destinatario: 'Intento Editar Entregado' });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('CONFLICT');
+    });
+
+    it('debe actualizar los datos del paquete exitosamente y responder 200', async () => {
+      (prisma.package.findUnique as jest.Mock).mockResolvedValue(mockPackage);
+      (prisma.package.update as jest.Mock).mockResolvedValue({
+        ...mockPackage,
+        destinatario: 'Destinatario Modificado',
+        urgente: true,
+      });
+
+      const res = await request(app)
+        .patch('/api/packages/pkg-uuid-1')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ destinatario: 'Destinatario Modificado', urgente: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.destinatario).toBe('Destinatario Modificado');
+      expect(res.body.urgente).toBe(true);
+    });
+  });
 });
