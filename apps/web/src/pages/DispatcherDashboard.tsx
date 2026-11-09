@@ -26,10 +26,10 @@ import {
 // Datos Iniciales (Basados en la propuesta de René)
 // ==========================================
 const MOCK_DRIVERS_LIST: DriverItem[] = [
-  { id: 'drv-ana', nombre: 'Ana Martínez', unidad: 'Van Eléctrica #01', tipo: 'EV', telefono: '+52 55 4123 9901', activo: true, paquetesAsignados: 3, bateria: 94, zona: 'Zona Rosa / Cuauhtémoc' },
-  { id: 'drv-carlos', nombre: 'Carlos Gómez', unidad: 'Motocicleta Ágil #03', tipo: 'MOTO', telefono: '+52 55 9911 2244', activo: true, paquetesAsignados: 1, bateria: 88, zona: 'Polanco / Chapultepec' },
-  { id: 'drv-roberto', nombre: 'Roberto Sánchez', unidad: 'Camioneta Isuzu #02', tipo: 'CAMION', telefono: '+52 55 6677 8899', activo: true, paquetesAsignados: 1, bateria: 78, zona: 'Coyoacán Sur' },
-  { id: 'drv-david', nombre: 'David Morales', unidad: 'Van Transit #04', tipo: 'VAN', telefono: '+52 55 5544 3322', activo: false, paquetesAsignados: 0, bateria: 0, zona: 'En Descanso' },
+  { id: 'drv-ana', nombre: 'Ana Martínez', unidad: 'Van Eléctrica #01', tipo: 'EV', telefono: '+52 55 4123 9901', activo: true, paquetesAsignados: 3, capacidadMaxima: 15, bateria: 94, zona: 'Zona Rosa / Cuauhtémoc' },
+  { id: 'drv-carlos', nombre: 'Carlos Gómez', unidad: 'Motocicleta Ágil #03', tipo: 'MOTO', telefono: '+52 55 9911 2244', activo: true, paquetesAsignados: 1, capacidadMaxima: 5, bateria: 88, zona: 'Polanco / Chapultepec' },
+  { id: 'drv-roberto', nombre: 'Roberto Sánchez', unidad: 'Camioneta Isuzu #02', tipo: 'CAMION', telefono: '+52 55 6677 8899', activo: true, paquetesAsignados: 1, capacidadMaxima: 30, bateria: 78, zona: 'Coyoacán Sur' },
+  { id: 'drv-david', nombre: 'David Morales', unidad: 'Van Transit #04', tipo: 'VAN', telefono: '+52 55 5544 3322', activo: false, paquetesAsignados: 0, capacidadMaxima: 18, bateria: 0, zona: 'En Descanso' },
 ];
 
 export type MapThemeKey = 'calles' | 'satelite' | 'osm' | 'dark';
@@ -75,7 +75,7 @@ export interface ActiveVehicle {
   heading: string;
   color: string;
   zona: string;
-  paquetesAsignados: number;
+  capacidadMaxima: number;
 }
 
 export const ACTIVE_FLEET_VEHICLES: ActiveVehicle[] = [
@@ -93,7 +93,7 @@ export const ACTIVE_FLEET_VEHICLES: ActiveVehicle[] = [
     heading: 'NE Reforma',
     color: '#00F5A0',
     zona: 'Zona Rosa / Cuauhtémoc',
-    paquetesAsignados: 3,
+    capacidadMaxima: 15,
   },
   {
     id: 'veh-carlos',
@@ -109,7 +109,7 @@ export const ACTIVE_FLEET_VEHICLES: ActiveVehicle[] = [
     heading: 'NW Polanco',
     color: '#FF5E00',
     zona: 'Polanco / Chapultepec',
-    paquetesAsignados: 1,
+    capacidadMaxima: 5,
   },
   {
     id: 'veh-roberto',
@@ -125,7 +125,7 @@ export const ACTIVE_FLEET_VEHICLES: ActiveVehicle[] = [
     heading: 'SE Coyoacán',
     color: '#38BDF8',
     zona: 'Coyoacán Sur',
-    paquetesAsignados: 1,
+    capacidadMaxima: 30,
   },
 ];
 
@@ -324,6 +324,89 @@ export const DispatcherDashboard: React.FC = () => {
   const [selectedDetailPackage, setSelectedDetailPackage] = useState<PackageRecord | null>(null);
   const [reassignPackage, setReassignPackage] = useState<PackageRecord | null>(null);
   const [selectedDriverForReassign, setSelectedDriverForReassign] = useState<string>('drv-ana');
+  const [selectedVehicleForCapacity, setSelectedVehicleForCapacity] = useState<ActiveVehicle | null>(null);
+  const [quickAssignPackageId, setQuickAssignPackageId] = useState<string>('');
+
+  // Obtener paquetes activos asignados a un chofer
+  const getDriverActivePackages = (driverId: string) => {
+    return packages.filter((p) => p.repartidor?.id === driverId && p.estado !== 'ENTREGADO');
+  };
+
+  const getDriverLoad = (driverId: string, maxCapacity: number) => {
+    const current = getDriverActivePackages(driverId).length;
+    const percentage = Math.min(100, Math.round((current / maxCapacity) * 100));
+    const available = Math.max(0, maxCapacity - current);
+    const isFull = current >= maxCapacity;
+    const isNearFull = percentage >= 80;
+    return { current, percentage, available, isFull, isNearFull };
+  };
+
+  // Asignar rápidamente un paquete pendiente al vehículo inspeccionado
+  const handleQuickAssignToVehicle = (targetDriverId: string, packageId: string) => {
+    if (!packageId) return;
+    const driverObj = drivers.find((d) => d.id === targetDriverId);
+    if (!driverObj) return;
+
+    setPackages((prev) =>
+      prev.map((pkg) =>
+        pkg.id === packageId
+          ? {
+              ...pkg,
+              estado: 'ASIGNADO',
+              repartidor: { id: driverObj.id, nombre: driverObj.nombre, unidad: driverObj.unidad },
+              requiereRevision: false,
+              actualizadoEn: new Date().toISOString(),
+              eventos: [
+                ...pkg.eventos,
+                {
+                  tipo: 'ASIGNADO',
+                  ocurridoEn: new Date().toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                  detalle: `Cargado a ${driverObj.nombre} (${driverObj.unidad})`
+                }
+              ]
+            }
+          : pkg
+      )
+    );
+    setQuickAssignPackageId('');
+  };
+
+  // Descargar paquete a bodega (liberar capacidad del vehículo)
+  const handleUnassignPackage = (packageId: string) => {
+    setPackages((prev) =>
+      prev.map((pkg) =>
+        pkg.id === packageId
+          ? {
+              ...pkg,
+              estado: 'REGISTRADO',
+              repartidor: null,
+              actualizadoEn: new Date().toISOString(),
+              eventos: [
+                ...pkg.eventos,
+                {
+                  tipo: 'ACTUALIZADO',
+                  ocurridoEn: new Date().toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                  detalle: 'Descargado del vehículo a bodega para reasignación'
+                }
+              ]
+            }
+          : pkg
+      )
+    );
+  };
+
+  // Escuchar evento personalizado desde el popup del mapa
+  useEffect(() => {
+    const handleInspect = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      const found = ACTIVE_FLEET_VEHICLES.find((v) => v.id === customEvent.detail);
+      if (found) {
+        setSelectedVehicleForCapacity(found);
+      }
+    };
+    window.addEventListener('inspect-vehicle', handleInspect);
+    return () => window.removeEventListener('inspect-vehicle', handleInspect);
+  }, []);
 
   // Formulario de Alta de Envío
   const [formRecipient, setFormRecipient] = useState('');
@@ -473,9 +556,12 @@ export const DispatcherDashboard: React.FC = () => {
       dashArray: '8, 8'
     }).addTo(routeLayer);
 
-    // 1. DIBUJAR VEHÍCULOS (Camionetas, Camiones y Motos en Ruta)
+    // 1. DIBUJAR VEHÍCULOS (Camionetas, Camiones y Motos en Ruta con Capacidad en Vivo)
     if (showVehicles) {
       ACTIVE_FLEET_VEHICLES.forEach((veh) => {
+        const load = getDriverLoad(veh.driverId, veh.capacidadMaxima);
+        const capacityColor = load.isFull ? '#EF4444' : load.isNearFull ? '#F59E0B' : '#10B981';
+
         const vehicleHtml = `
           <div style="position: relative; display: inline-flex; align-items: center; cursor: pointer; white-space: nowrap; transform: translate(-50%, -50%);">
             <div style="display: flex; align-items: center; gap: 7px; background: rgba(11, 17, 30, 0.95); border: 2px solid ${veh.color}; border-radius: 9999px; padding: 3px 10px 3px 5px; box-shadow: 0 4px 16px rgba(0,0,0,0.6), 0 0 14px ${veh.color}80; color: #fff; font-family: 'Inter', sans-serif;">
@@ -491,9 +577,9 @@ export const DispatcherDashboard: React.FC = () => {
                 <div style="font-size: 9px; color: #94A3B8; display: flex; align-items: center; gap: 6px; font-family: monospace;">
                   <span>⚡ ${veh.battery}%</span>
                   <span>•</span>
-                  <span>🏎️ ${veh.speed}</span>
+                  <span style="color: ${capacityColor}; font-weight: bold;">📦 ${load.current}/${veh.capacidadMaxima} (${load.percentage}%)</span>
                   <span>•</span>
-                  <span style="color: #60A5FA;">📦 ${veh.paquetesAsignados} envíos</span>
+                  <span style="color: ${load.isFull ? '#EF4444' : '#38BDF8'}; font-weight: 700;">${load.isFull ? 'LLENO' : `${load.available} libres`}</span>
                 </div>
               </div>
             </div>
@@ -503,13 +589,19 @@ export const DispatcherDashboard: React.FC = () => {
         const vehicleIcon = L.divIcon({
           className: 'custom-vehicle-marker',
           html: vehicleHtml,
-          iconSize: [180, 44],
-          iconAnchor: [90, 22],
+          iconSize: [210, 44],
+          iconAnchor: [105, 22],
         });
 
         const marker = L.marker([veh.lat, veh.lng], { icon: vehicleIcon });
+
+        // Clic directo en el vehículo en el mapa abre su ficha de capacidad
+        marker.on('click', () => {
+          setSelectedVehicleForCapacity(veh);
+        });
+
         marker.bindPopup(`
-          <div style="padding: 10px; font-family: 'Inter', sans-serif; min-width: 210px; color: #E2E8F0;">
+          <div style="padding: 10px; font-family: 'Inter', sans-serif; min-width: 220px; color: #E2E8F0;">
             <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
               <span style="font-size: 22px;">${veh.icon}</span>
               <div>
@@ -517,12 +609,21 @@ export const DispatcherDashboard: React.FC = () => {
                 <div style="font-size: 11px; color: ${veh.color}; font-weight: 700;">${veh.driverName}</div>
               </div>
             </div>
-            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
-              <div><strong>Sector / Zona:</strong> ${veh.zona}</div>
+            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px; display: flex; flex-direction: column; gap: 3px;">
+              <div><strong>Sector / Cuadrante:</strong> ${veh.zona}</div>
               <div><strong>Velocidad Actual:</strong> ${veh.speed} (${veh.heading})</div>
               <div><strong>Autonomía Batería:</strong> ${veh.battery}%</div>
-              <div><strong>Carga Asignada:</strong> ${veh.paquetesAsignados} paquetes activos</div>
+              <div><strong>Capacidad de Carga:</strong> <span style="color: ${capacityColor}; font-weight: bold;">${load.current} de ${veh.capacidadMaxima} paquetes (${load.percentage}%)</span></div>
+              <div style="font-size: 10px; color: ${load.isFull ? '#EF4444' : '#10B981'}; font-weight: bold;">
+                ${load.isFull ? '⛔ Capacidad máxima alcanzada' : `🟢 Espacio disponible: ${load.available} paquetes`}
+              </div>
             </div>
+            <button
+              onclick="window.dispatchEvent(new CustomEvent('inspect-vehicle', { detail: '${veh.id}' }))"
+              style="margin-top: 8px; width: 100%; padding: 6px; border-radius: 8px; background: #2563EB; color: #FFF; font-weight: bold; font-size: 11px; border: none; cursor: pointer;"
+            >
+              🔍 Inspeccionar Capacidad y Carga
+            </button>
           </div>
         `);
         marker.addTo(vehiclesLayer);
@@ -1055,33 +1156,76 @@ export const DispatcherDashboard: React.FC = () => {
               </div>
             )}
 
-            {/* SUB-VISTA: GESTIÓN DE CHOFERES */}
+            {/* SUB-VISTA: GESTIÓN DE CHOFERES (Con Monitoreo de Capacidad en Vivo) */}
             {adminSubTab === 'choferes' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {drivers.map((drv) => (
-                  <div key={drv.id} className="bg-[#0B111E] rounded-2xl p-5 border border-slate-800 shadow-lg flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between">
-                        <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold">
-                          <User className="w-5 h-5" />
-                        </div>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                          drv.activo ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'
-                        }`}>
-                          {drv.activo ? 'ACTIVO' : 'DESCANSO'}
-                        </span>
-                      </div>
-                      <h4 className="font-bold text-white text-base mt-3">{drv.nombre}</h4>
-                      <p className="text-xs text-slate-400 font-mono mt-0.5">{drv.unidad}</p>
-                      <p className="text-xs text-slate-500 mt-2">{drv.zona}</p>
-                    </div>
+                {drivers.map((drv) => {
+                  const load = getDriverLoad(drv.id, drv.capacidadMaxima);
+                  const barColor = load.isFull ? '#EF4444' : load.isNearFull ? '#F59E0B' : '#10B981';
+                  const activeVeh = ACTIVE_FLEET_VEHICLES.find((v) => v.driverId === drv.id);
 
-                    <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs font-mono">
-                      <span className="text-slate-400">Paquetes: <strong className="text-white">{drv.paquetesAsignados}</strong></span>
-                      <span className="text-blue-400 font-semibold">{drv.telefono}</span>
+                  return (
+                    <div key={drv.id} className="bg-[#0B111E] rounded-2xl p-5 border border-slate-800 shadow-lg flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start justify-between">
+                          <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold text-lg">
+                            {drv.tipo === 'MOTO' ? '🏍️' : drv.tipo === 'CAMION' ? '🚚' : '🚐'}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {drv.bateria !== undefined && drv.bateria > 0 && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-emerald-400 border border-slate-700">
+                                ⚡ {drv.bateria}%
+                              </span>
+                            )}
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                              drv.activo ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'
+                            }`}>
+                              {drv.activo ? 'ACTIVO' : 'DESCANSO'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <h4 className="font-bold text-white text-base mt-3">{drv.nombre}</h4>
+                        <p className="text-xs text-slate-400 font-mono mt-0.5">{drv.unidad}</p>
+                        <p className="text-xs text-slate-500 mt-2">{drv.zona}</p>
+
+                        {/* Medidor de Capacidad y Ocupación */}
+                        <div className="mt-4 p-3 bg-[#070B14] rounded-xl border border-slate-800/80 font-mono text-xs">
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="text-slate-400">Capacidad Carga:</span>
+                            <span className="font-bold text-white">{load.current} / {drv.capacidadMaxima}</span>
+                          </div>
+                          <div className="w-full bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${load.percentage}%`, backgroundColor: barColor }} />
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] mt-1.5">
+                            <span className="text-slate-500">{load.percentage}% Ocupado</span>
+                            <span style={{ color: barColor }} className="font-bold">
+                              {load.isFull ? '⛔ LLENO' : `🟢 ${load.available} libres`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col gap-2 font-mono">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400">Tel:</span>
+                          <span className="text-blue-400 font-semibold">{drv.telefono}</span>
+                        </div>
+
+                        {activeVeh && (
+                          <button
+                            onClick={() => setSelectedVehicleForCapacity(activeVeh)}
+                            className="w-full py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-white border border-blue-500/30 text-xs font-bold transition flex items-center justify-center gap-1.5"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Inspeccionar Capacidad</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -1217,30 +1361,56 @@ export const DispatcherDashboard: React.FC = () => {
                     {ACTIVE_FLEET_VEHICLES.length} UNIDADES
                   </span>
                 </div>
-                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                  {ACTIVE_FLEET_VEHICLES.map((veh) => (
-                    <div
-                      key={veh.id}
-                      onClick={() => {
-                        if (mapInstanceRef.current) {
-                          mapInstanceRef.current.flyTo([veh.lat, veh.lng], 16);
-                        }
-                      }}
-                      className="p-2 rounded-xl bg-[#070B14] border border-slate-800 hover:border-[#00F5A0] cursor-pointer transition flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{veh.icon}</span>
-                        <div>
-                          <div className="font-bold text-white text-[11px]">{veh.driverName}</div>
-                          <div className="text-[10px] text-slate-400">{veh.unit}</div>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {ACTIVE_FLEET_VEHICLES.map((veh) => {
+                    const load = getDriverLoad(veh.driverId, veh.capacidadMaxima);
+                    const barColor = load.isFull ? '#EF4444' : load.isNearFull ? '#F59E0B' : '#10B981';
+
+                    return (
+                      <div
+                        key={veh.id}
+                        onClick={() => {
+                          setSelectedVehicleForCapacity(veh);
+                          if (mapInstanceRef.current) {
+                            mapInstanceRef.current.flyTo([veh.lat, veh.lng], 16);
+                          }
+                        }}
+                        className="p-2.5 rounded-xl bg-[#070B14] border border-slate-800 hover:border-[#00F5A0] cursor-pointer transition flex flex-col gap-1.5 text-xs group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{veh.icon}</span>
+                            <div>
+                              <div className="font-bold text-white text-[11px] group-hover:text-[#00F5A0] transition">
+                                {veh.driverName}
+                              </div>
+                              <div className="text-[10px] text-slate-400">{veh.unit}</div>
+                            </div>
+                          </div>
+                          <div className="text-right text-[10px] font-mono">
+                            <div className="text-emerald-400 font-bold">⚡ {veh.battery}%</div>
+                            <div className="text-slate-500">{veh.speed}</div>
+                          </div>
+                        </div>
+
+                        {/* Barra de Capacidad en tiempo real */}
+                        <div className="pt-1.5 border-t border-slate-800/80 font-mono text-[10px]">
+                          <div className="flex justify-between items-center text-slate-400">
+                            <span>Carga: <strong className="text-white">{load.current}/{veh.capacidadMaxima}</strong></span>
+                            <span style={{ color: barColor }} className="font-bold">
+                              {load.isFull ? 'LLENO' : `${load.available} libres`}
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-800 h-1.5 rounded-full mt-1 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${load.percentage}%`, backgroundColor: barColor }}
+                            />
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right text-[10px] font-mono">
-                        <div className="text-emerald-400 font-bold">⚡ {veh.battery}%</div>
-                        <div className="text-slate-500">{veh.speed}</div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1589,10 +1759,29 @@ export const DispatcherDashboard: React.FC = () => {
                   onChange={(e) => setFormDriverId(e.target.value)}
                   className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white cursor-pointer"
                 >
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id} className="bg-[#0B111E]">{d.nombre} — {d.unidad}</option>
-                  ))}
+                  {drivers.map((d) => {
+                    const dLoad = getDriverLoad(d.id, d.capacidadMaxima);
+                    return (
+                      <option key={d.id} value={d.id} className="bg-[#0B111E]">
+                        {d.nombre} — {d.unidad} [{dLoad.current}/{d.capacidadMaxima} cargados • {dLoad.isFull ? '⛔ LLENO' : `🟢 ${dLoad.available} libres`}]
+                      </option>
+                    );
+                  })}
                 </select>
+                {(() => {
+                  const targetDrv = drivers.find((d) => d.id === formDriverId);
+                  if (!targetDrv) return null;
+                  const dLoad = getDriverLoad(targetDrv.id, targetDrv.capacidadMaxima);
+                  if (dLoad.isFull) {
+                    return (
+                      <p className="text-[11px] text-amber-400 mt-1.5 flex items-center gap-1 font-mono">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>Aviso: {targetDrv.nombre} ya tiene su capacidad completa ({dLoad.current}/{targetDrv.capacidadMaxima}).</span>
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               <div>
@@ -1699,14 +1888,39 @@ export const DispatcherDashboard: React.FC = () => {
             <select
               value={selectedDriverForReassign}
               onChange={(e) => setSelectedDriverForReassign(e.target.value)}
-              className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+              className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white cursor-pointer"
             >
-              {drivers.filter((d) => d.activo).map((d) => (
-                <option key={d.id} value={d.id} className="bg-[#0B111E]">
-                  {d.nombre} — {d.unidad}
-                </option>
-              ))}
+              {drivers.filter((d) => d.activo).map((d) => {
+                const dLoad = getDriverLoad(d.id, d.capacidadMaxima);
+                return (
+                  <option key={d.id} value={d.id} className="bg-[#0B111E]">
+                    {d.nombre} — {d.unidad} [{dLoad.current}/{d.capacidadMaxima} cargados • {dLoad.isFull ? '⛔ LLENO' : `🟢 ${dLoad.available} libres`}]
+                  </option>
+                );
+              })}
             </select>
+
+            {/* Alerta de Sobrecarga si el chofer seleccionado está al 100% */}
+            {(() => {
+              const targetDrv = drivers.find((d) => d.id === selectedDriverForReassign);
+              if (!targetDrv) return null;
+              const dLoad = getDriverLoad(targetDrv.id, targetDrv.capacidadMaxima);
+              if (dLoad.isFull) {
+                return (
+                  <div className="p-2.5 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-300 text-[11px] flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>
+                      <strong>¡Vehículo Lleno!</strong> {targetDrv.nombre} ya tiene {dLoad.current}/{targetDrv.capacidadMaxima} paquetes. Reasignar aquí causará sobrecarga operativa.
+                    </span>
+                  </div>
+                );
+              }
+              return (
+                <div className="text-[11px] font-mono text-emerald-400">
+                  Capacidad disponible en esta unidad: {dLoad.available} paquetes libres.
+                </div>
+              );
+            })()}
 
             <div className="flex justify-end gap-2 pt-2">
               <button
@@ -1725,6 +1939,246 @@ export const DispatcherDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ========================================================= */}
+      {/* 6. MODAL: CAPACIDAD Y CARGA DEL VEHÍCULO SELECCIONADO     */}
+      {/* ========================================================= */}
+      {selectedVehicleForCapacity && (() => {
+        const veh = selectedVehicleForCapacity;
+        const maxCap = veh.capacidadMaxima;
+        const load = getDriverLoad(veh.driverId, maxCap);
+        const assignedPackages = getDriverActivePackages(veh.driverId);
+        const unassignedPackages = packages.filter((p) => p.estado === 'REGISTRADO' || !p.repartidor);
+        const barColor = load.isFull ? '#EF4444' : load.isNearFull ? '#F59E0B' : '#10B981';
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="bg-[#0B111E] border border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+              
+              {/* Header del Vehículo */}
+              <div className="flex justify-between items-start pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3.5">
+                  <div
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-lg"
+                    style={{ backgroundColor: `${veh.color}20`, border: `1.5px solid ${veh.color}` }}
+                  >
+                    <span>{veh.icon}</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-lg text-white">{veh.unit}</h3>
+                      <span
+                        className="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
+                        style={{ backgroundColor: `${veh.color}20`, color: veh.color, border: `1px solid ${veh.color}50` }}
+                      >
+                        {veh.type}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      Chofer: <strong className="text-white">{veh.driverName}</strong> • {veh.zona}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setSelectedVehicleForCapacity(null)}
+                  className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Medidor Central de Capacidad de Carga */}
+              <div className="bg-[#070B14] p-5 rounded-2xl border border-slate-800/80 flex flex-col gap-3 font-mono">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider">Capacidad de Carga del Vehículo</div>
+                    <div className="text-2xl font-black text-white mt-1 flex items-baseline gap-2">
+                      <span>{load.current} <span className="text-base font-semibold text-slate-400">/ {maxCap} paquetes</span></span>
+                      <span style={{ color: barColor }} className="text-base font-bold">({load.percentage}%)</span>
+                    </div>
+                  </div>
+
+                  {/* Veredicto de Espacio Operativo */}
+                  <div
+                    className="px-3 py-1.5 rounded-xl border text-xs font-bold self-start sm:self-auto flex items-center gap-2"
+                    style={{
+                      backgroundColor: load.isFull ? '#EF444420' : load.isNearFull ? '#F59E0B20' : '#10B98120',
+                      borderColor: load.isFull ? '#EF444460' : load.isNearFull ? '#F59E0B60' : '#10B98160',
+                      color: barColor,
+                    }}
+                  >
+                    <span>{load.isFull ? '⛔ CAPACIDAD MÁXIMA ALCANZADA' : load.isNearFull ? `⚠️ ESPACIO LIMITADO (${load.available} LIBRES)` : `🟢 ESPACIO DISPONIBLE (${load.available} LIBRES)`}</span>
+                  </div>
+                </div>
+
+                {/* Barra de Progreso Visual */}
+                <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden mt-1 p-0.5 border border-slate-700">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{ width: `${load.percentage}%`, backgroundColor: barColor }}
+                  />
+                </div>
+
+                <div className="flex justify-between items-center text-[10px] text-slate-400 pt-1">
+                  <span>0 (Vacío)</span>
+                  <span>{Math.round(maxCap / 2)} (Media carga)</span>
+                  <span>{maxCap} máx (Límite unidad)</span>
+                </div>
+              </div>
+
+              {/* Métricas Técnicas Rápidas */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-[#0F172A] p-3 rounded-xl border border-slate-800 text-center font-mono">
+                  <div className="text-[10px] text-slate-400 uppercase">Autonomía</div>
+                  <div className="text-sm font-bold text-emerald-400 mt-1">⚡ {veh.battery}%</div>
+                </div>
+                <div className="bg-[#0F172A] p-3 rounded-xl border border-slate-800 text-center font-mono">
+                  <div className="text-[10px] text-slate-400 uppercase">Velocidad</div>
+                  <div className="text-sm font-bold text-blue-400 mt-1">{veh.speed}</div>
+                </div>
+                <div className="bg-[#0F172A] p-3 rounded-xl border border-slate-800 text-center font-mono">
+                  <div className="text-[10px] text-slate-400 uppercase">Espacio Libre</div>
+                  <div className="text-sm font-bold mt-1" style={{ color: barColor }}>
+                    {load.isFull ? '0 cupos' : `${load.available} cupos`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección Carga Rápida de Envíos Pendientes */}
+              <div className="p-4 rounded-2xl bg-[#0F172A]/80 border border-slate-800 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                    <span>⚡ CARGA RÁPIDA DE PAQUETES A ESTA UNIDAD</span>
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-400">
+                    {unassignedPackages.length} en bodega sin chofer
+                  </span>
+                </div>
+
+                {load.isFull ? (
+                  <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>
+                      <strong>Vehículo a tope:</strong> Ha alcanzado los {maxCap} paquetes de capacidad máxima. Para asignar más paquetes debe reasignar o esperar entregas completadas.
+                    </span>
+                  </div>
+                ) : unassignedPackages.length === 0 ? (
+                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 text-slate-400 text-xs text-center font-mono">
+                    No hay paquetes pendientes de asignar en bodega actualmente.
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select
+                      value={quickAssignPackageId}
+                      onChange={(e) => setQuickAssignPackageId(e.target.value)}
+                      className="flex-1 bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white cursor-pointer"
+                    >
+                      <option value="">-- Seleccionar paquete pendiente en bodega --</option>
+                      {unassignedPackages.map((pkg) => (
+                        <option key={pkg.id} value={pkg.id} className="bg-[#0B111E]">
+                          {pkg.guia} — {pkg.destinatario} ({pkg.zona}) {pkg.urgente ? '⚡ URGENTE' : ''}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={() => handleQuickAssignToVehicle(veh.driverId, quickAssignPackageId)}
+                      disabled={!quickAssignPackageId}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition flex items-center justify-center gap-1.5 whitespace-nowrap"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Cargar al Vehículo</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Lista de Paquetes actualmente a bordo */}
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center text-xs font-mono">
+                  <span className="text-slate-400 uppercase font-bold">
+                    Paquetes a Bordo ({assignedPackages.length}):
+                  </span>
+                  <span className="text-slate-500 text-[11px]">
+                    {assignedPackages.filter((p) => p.estado === 'EN_RUTA').length} en reparto activo
+                  </span>
+                </div>
+
+                {assignedPackages.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-[#070B14] border border-slate-800 text-slate-500 text-xs text-center font-mono">
+                    Este vehículo no tiene paquetes asignados en este momento.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {assignedPackages.map((pkg) => (
+                      <div
+                        key={pkg.id}
+                        className="p-3 rounded-xl bg-[#070B14] border border-slate-800 hover:border-slate-700 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 font-bold flex items-center justify-center shrink-0">
+                            📦
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-white text-xs">{pkg.guia}</span>
+                              {pkg.urgente && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-600/20 text-rose-400 border border-rose-500/40">
+                                  ⚡ URGENTE
+                                </span>
+                              )}
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300">
+                                {pkg.estado}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                              {pkg.destinatario} &bull; {pkg.direccion}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => {
+                              setReassignPackage(pkg);
+                              setSelectedDriverForReassign(
+                                drivers.find((d) => d.activo && d.id !== veh.driverId)?.id || drivers[0].id
+                              );
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-mono text-[11px] font-semibold transition"
+                            title="Transferir a otro repartidor"
+                          >
+                            Reasignar
+                          </button>
+                          <button
+                            onClick={() => handleUnassignPackage(pkg.id)}
+                            className="px-2.5 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-500/30 font-mono text-[11px] font-semibold transition"
+                            title="Descargar paquete a bodega sin chofer"
+                          >
+                            Descargar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Botón Cerrar */}
+              <div className="flex justify-end pt-2 border-t border-slate-800">
+                <button
+                  onClick={() => setSelectedVehicleForCapacity(null)}
+                  className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition font-mono"
+                >
+                  Cerrar Ficha
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ========================================================= */}
       {/* MODALES Y CIERRE */}

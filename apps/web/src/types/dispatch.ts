@@ -1,7 +1,7 @@
 export type PackageStatus = 'REGISTRADO' | 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
 
 export interface PackageEvent {
-  tipo: 'CREADO' | 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO';
+  tipo: 'CREADO' | 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO' | 'FALLIDO' | 'ACTUALIZADO' | 'REASIGNADO';
   ocurridoEn: string;
   detalle: string;
   motivo?: string;
@@ -17,6 +17,7 @@ export interface DriverItem {
   telefono: string;
   activo: boolean;
   paquetesAsignados: number;
+  capacidadMaxima: number;
   bateria?: number;
   zona: string;
 }
