@@ -26,10 +26,10 @@ import {
 // Datos Iniciales (Basados en la propuesta de René)
 // ==========================================
 const MOCK_DRIVERS_LIST: DriverItem[] = [
-  { id: 'drv-ana', nombre: 'Ana Martínez', unidad: 'Van Eléctrica #01', tipo: 'EV', telefono: '+52 55 4123 9901', activo: true, paquetesAsignados: 3, capacidadMaxima: 15, bateria: 94, zona: 'Zona Rosa / Cuauhtémoc' },
-  { id: 'drv-carlos', nombre: 'Carlos Gómez', unidad: 'Motocicleta Ágil #03', tipo: 'MOTO', telefono: '+52 55 9911 2244', activo: true, paquetesAsignados: 1, capacidadMaxima: 5, bateria: 88, zona: 'Polanco / Chapultepec' },
-  { id: 'drv-roberto', nombre: 'Roberto Sánchez', unidad: 'Camioneta Isuzu #02', tipo: 'CAMION', telefono: '+52 55 6677 8899', activo: true, paquetesAsignados: 1, capacidadMaxima: 30, bateria: 78, zona: 'Coyoacán Sur' },
-  { id: 'drv-david', nombre: 'David Morales', unidad: 'Van Transit #04', tipo: 'VAN', telefono: '+52 55 5544 3322', activo: false, paquetesAsignados: 0, capacidadMaxima: 18, bateria: 0, zona: 'En Descanso' },
+  { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', unidad: 'Van Eléctrica #01', tipo: 'EV', telefono: '+52 951 120 4411', activo: true, paquetesAsignados: 3, capacidadMaxima: 15, bateria: 94, zona: 'Oaxaca Centro / Jalatlaco' },
+  { id: 'drv-donato', nombre: 'Donato Aquino', unidad: 'Motocicleta Ágil #03', tipo: 'MOTO', telefono: '+52 951 443 8822', activo: true, paquetesAsignados: 2, capacidadMaxima: 5, bateria: 88, zona: 'Colonia Reforma / San Felipe' },
+  { id: 'drv-guadalupe', nombre: 'Guadalupe Mariscal', unidad: 'Camioneta Isuzu #02', tipo: 'CAMION', telefono: '+52 951 556 9933', activo: true, paquetesAsignados: 1, capacidadMaxima: 30, bateria: 78, zona: 'Xoxocotlán / Candiani' },
+  { id: 'drv-david', nombre: 'David Morales', unidad: 'Van Transit #04', tipo: 'VAN', telefono: '+52 951 332 1100', activo: false, paquetesAsignados: 0, capacidadMaxima: 18, bateria: 0, zona: 'En Descanso' },
 ];
 
 export type MapThemeKey = 'calles' | 'satelite' | 'osm' | 'dark';
@@ -80,222 +80,221 @@ export interface ActiveVehicle {
 
 export const ACTIVE_FLEET_VEHICLES: ActiveVehicle[] = [
   {
-    id: 'veh-ana',
-    driverId: 'drv-ana',
-    driverName: 'Ana Martínez',
+    id: 'veh-xochitl',
+    driverId: 'drv-xochitl',
+    driverName: 'Xóchitl Ruiz',
     unit: 'Van Eléctrica #01',
     type: 'EV',
     icon: '🚐',
-    lat: 19.4245,
-    lng: -99.1660,
+    lat: 17.0635,
+    lng: -96.7210,
     battery: 94,
     speed: '36 km/h',
-    heading: 'NE Reforma',
+    heading: 'NE Oaxaca Centro',
     color: '#00F5A0',
-    zona: 'Zona Rosa / Cuauhtémoc',
+    zona: 'Oaxaca Centro / Jalatlaco',
     capacidadMaxima: 15,
   },
   {
-    id: 'veh-carlos',
-    driverId: 'drv-carlos',
-    driverName: 'Carlos Gómez',
+    id: 'veh-donato',
+    driverId: 'drv-donato',
+    driverName: 'Donato Aquino',
     unit: 'Moto Ágil #03',
     type: 'MOTO',
     icon: '🏍️',
-    lat: 19.4340,
-    lng: -99.1915,
+    lat: 17.0750,
+    lng: -96.7140,
     battery: 88,
     speed: '44 km/h',
-    heading: 'NW Polanco',
+    heading: 'NW Reforma',
     color: '#FF5E00',
-    zona: 'Polanco / Chapultepec',
+    zona: 'Colonia Reforma / San Felipe',
     capacidadMaxima: 5,
   },
   {
-    id: 'veh-roberto',
-    driverId: 'drv-roberto',
-    driverName: 'Roberto Sánchez',
+    id: 'veh-guadalupe',
+    driverId: 'drv-guadalupe',
+    driverName: 'Guadalupe Mariscal',
     unit: 'Camión Isuzu #02',
     type: 'CAMION',
     icon: '🚚',
-    lat: 19.3490,
-    lng: -99.1625,
+    lat: 17.0340,
+    lng: -96.7220,
     battery: 78,
     speed: '28 km/h',
-    heading: 'SE Coyoacán',
+    heading: 'SE Xoxocotlán',
     color: '#38BDF8',
-    zona: 'Coyoacán Sur',
+    zona: 'Xoxocotlán / Candiani',
     capacidadMaxima: 30,
   },
 ];
 
 const INITIAL_PACKAGES_RENE: PackageRecord[] = [
   {
-    id: 'pkg-104920',
-    guia: 'ET-104920',
-    destinatario: 'Juan Pérez García',
-    telefonoDestinatario: '+52 55 4123 9901',
-    direccion: 'Av. Paseo de la Reforma 222, Piso 8, Of. 804',
-    zona: 'Zona Rosa / Cuauhtémoc',
-    lat: 19.4270,
-    lng: -99.1677,
+    id: 'pkg-9482',
+    guia: 'ET-9482',
+    destinatario: 'BioPharma Express / Farmacias del Ahorro',
+    telefonoDestinatario: '+52 951 516 4020',
+    direccion: 'Av. Benito Juárez #302, Oaxaca Centro, 68000',
+    zona: 'Oaxaca Centro',
+    lat: 17.0650,
+    lng: -96.7225,
     urgente: true,
     estado: 'EN_RUTA',
-    repartidor: { id: 'drv-ana', nombre: 'Ana Martínez', unidad: 'Van Eléctrica #01' },
+    repartidor: { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', unidad: 'Van Eléctrica #01' },
     requiereRevision: false,
-    creadoEn: '2026-11-06T06:00:00Z',
-    actualizadoEn: '2026-11-06T08:30:00Z',
+    creadoEn: '2026-11-09T06:00:00Z',
+    actualizadoEn: '2026-11-09T08:30:00Z',
     eta: '14:15 CST (12 min)',
     progreso: 75,
-    notas: 'Entregar en recepción con sello de acuse.',
+    notas: 'Entregar en recepción con sello de acuse y firma digital.',
     eventos: [
-      { tipo: 'CREADO', ocurridoEn: '6 nov 2026, 6:00 a. m.', detalle: 'Paquete recibido en centro logístico' },
-      { tipo: 'ASIGNADO', ocurridoEn: '6 nov 2026, 7:15 a. m.', detalle: 'Asignado a Ana Martínez' },
-      { tipo: 'EN_RUTA', ocurridoEn: '6 nov 2026, 8:30 a. m.', detalle: 'En camino a destino con ruta 2-opt' }
+      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 6:00 a. m.', detalle: 'Paquete recibido en centro logístico Oaxaca' },
+      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 7:15 a. m.', detalle: 'Asignado a Xóchitl Ruiz' },
+      { tipo: 'EN_RUTA', ocurridoEn: '9 nov 2026, 8:30 a. m.', detalle: 'En camino a destino con ruta 2-opt Valles Centrales' }
     ]
   },
   {
-    id: 'pkg-104921',
-    guia: 'ET-104921',
-    destinatario: 'María Rodríguez Lara',
-    telefonoDestinatario: '+52 55 8821 7733',
-    direccion: 'Calle Colima 145, Depto 302, Col. Roma Norte',
-    zona: 'Condesa / Roma',
-    lat: 19.4195,
-    lng: -99.1610,
-    urgente: false,
-    estado: 'ENTREGADO',
-    repartidor: { id: 'drv-ana', nombre: 'Ana Martínez', unidad: 'Van Eléctrica #01' },
-    requiereRevision: false,
-    creadoEn: '2026-11-06T01:30:00Z',
-    actualizadoEn: '2026-11-06T04:48:00Z',
-    eta: 'Entregado 04:48 a.m.',
-    progreso: 100,
-    notas: 'Firma digitalizada de entrega.',
-    eventos: [
-      { tipo: 'CREADO', ocurridoEn: '6 nov 2026, 1:30 a. m.', detalle: 'Paquete recibido en centro logístico' },
-      { tipo: 'ASIGNADO', ocurridoEn: '6 nov 2026, 2:10 a. m.', detalle: 'Asignado a Ana Martínez' },
-      { tipo: 'EN_RUTA', ocurridoEn: '6 nov 2026, 3:15 a. m.', detalle: 'En camino a destino' },
-      { tipo: 'ENTREGADO', ocurridoEn: '6 nov 2026, 4:48 a. m.', detalle: 'Entregado en mano a María R. Firma digitalizada y evidencia fotográfica.', firma: true, foto: true }
-    ]
-  },
-  {
-    id: 'pkg-104922',
-    guia: 'ET-104922',
-    destinatario: 'Esteban Castro Mendoza',
-    telefonoDestinatario: '+52 55 9911 2244',
-    direccion: 'Av. Horacio 620, Depto 501, Polanco',
-    zona: 'Polanco / Chapultepec',
-    lat: 19.4332,
-    lng: -99.1910,
-    urgente: true,
-    estado: 'FALLIDO',
-    repartidor: { id: 'drv-carlos', nombre: 'Carlos Gómez', unidad: 'Motocicleta Ágil #03' },
-    requiereRevision: true,
-    creadoEn: '2026-11-06T06:30:00Z',
-    actualizadoEn: '2026-11-06T09:40:00Z',
-    eta: 'Reprogramar Turno',
-    progreso: 20,
-    notas: 'Nadie en domicilio. Timbre descompuesto.',
-    eventos: [
-      { tipo: 'CREADO', ocurridoEn: '6 nov 2026, 6:30 a. m.', detalle: 'Paquete recibido en centro logístico' },
-      { tipo: 'ASIGNADO', ocurridoEn: '6 nov 2026, 7:20 a. m.', detalle: 'Asignado a Carlos Gómez' },
-      { tipo: 'EN_RUTA', ocurridoEn: '6 nov 2026, 8:15 a. m.', detalle: 'En camino a destino' },
-      { tipo: 'FALLIDO', ocurridoEn: '6 nov 2026, 9:40 a. m.', detalle: 'Intento fallido: Nadie en domicilio / timbre no funciona', motivo: 'Nadie en casa' }
-    ]
-  },
-  {
-    id: 'pkg-104923',
-    guia: 'ET-104923',
-    destinatario: 'Lucía Fernández Ramos',
-    telefonoDestinatario: '+52 55 6677 8899',
-    direccion: 'Calle Francisco Sosa 89, Coyoacán Centro',
-    zona: 'Coyoacán Sur',
-    lat: 19.3490,
-    lng: -99.1620,
+    id: 'pkg-7103',
+    guia: 'ET-7103',
+    destinatario: 'OmniCloud Data Hub',
+    telefonoDestinatario: '+52 951 513 8890',
+    direccion: 'Calzada Porfirio Díaz #120, Col. Reforma, 68050',
+    zona: 'Colonia Reforma',
+    lat: 17.0782,
+    lng: -96.7135,
     urgente: false,
     estado: 'ASIGNADO',
-    repartidor: { id: 'drv-roberto', nombre: 'Roberto Sánchez', unidad: 'Camioneta Isuzu #02' },
+    repartidor: { id: 'drv-donato', nombre: 'Donato Aquino', unidad: 'Moto Ágil #03' },
     requiereRevision: false,
-    creadoEn: '2026-11-06T07:10:00Z',
-    actualizadoEn: '2026-11-06T08:00:00Z',
-    eta: '16:00 CST',
-    progreso: 35,
-    notas: 'Casa con zaguán negro de herrería.',
+    creadoEn: '2026-11-09T06:30:00Z',
+    actualizadoEn: '2026-11-09T07:45:00Z',
+    eta: '15:30 CST (40 min)',
+    progreso: 30,
+    notas: 'Oficinas corporativas segundo piso.',
     eventos: [
-      { tipo: 'CREADO', ocurridoEn: '6 nov 2026, 7:10 a. m.', detalle: 'Paquete recibido en centro logístico' },
-      { tipo: 'ASIGNADO', ocurridoEn: '6 nov 2026, 8:00 a. m.', detalle: 'Asignado a Roberto Sánchez' }
+      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 6:30 a. m.', detalle: 'Paquete recibido en centro logístico Oaxaca' },
+      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 7:45 a. m.', detalle: 'Asignado a Donato Aquino' }
     ]
   },
   {
-    id: 'pkg-104924',
-    guia: 'ET-104924',
-    destinatario: 'Daniel Ortega Valle',
-    telefonoDestinatario: '+52 55 2233 4455',
-    direccion: 'Eje Central Lázaro Cárdenas 13, Despacho 401',
-    zona: 'Centro Histórico',
-    lat: 19.4340,
-    lng: -99.1415,
+    id: 'pkg-6320',
+    guia: 'ET-6320',
+    destinatario: 'Lic. Frida Cosijoeza Mendoza',
+    telefonoDestinatario: '+52 951 501 3344',
+    direccion: 'Calle Allende #108, Barrio de Jalatlaco, 68080 Oaxaca',
+    zona: 'Barrio de Jalatlaco',
+    lat: 17.0668,
+    lng: -96.7140,
     urgente: true,
     estado: 'REGISTRADO',
     repartidor: null,
     requiereRevision: false,
-    creadoEn: '2026-11-06T08:30:00Z',
-    actualizadoEn: '2026-11-06T08:30:00Z',
+    creadoEn: '2026-11-09T08:00:00Z',
+    actualizadoEn: '2026-11-09T08:00:00Z',
     eta: 'Pendiente Chofer',
     progreso: 10,
-    notas: 'Horario de oficina hasta las 18:00.',
+    notas: 'Documentación legal urgente de notaría. Solicitar INE.',
     eventos: [
-      { tipo: 'CREADO', ocurridoEn: '6 nov 2026, 8:30 a. m.', detalle: 'Paquete registrado y recibido en bodega' }
+      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 8:00 a. m.', detalle: 'Paquete registrado y recibido en bodega' }
     ]
   },
   {
-    id: 'pkg-104925',
-    guia: 'ET-104925',
-    destinatario: 'Patricia Morales Solis',
-    telefonoDestinatario: '+52 55 5544 3322',
-    direccion: 'Av. División del Norte 1240, Col. Del Valle',
-    zona: 'Del Valle / Narvarte',
-    lat: 19.3820,
-    lng: -99.1605,
+    id: 'pkg-5012',
+    guia: 'ET-5012',
+    destinatario: 'Residencia San Felipe / Ing. Pedro',
+    telefonoDestinatario: '+52 951 520 7711',
+    direccion: 'Av. Hidalgo #304, San Felipe del Agua, 68020 Oaxaca',
+    zona: 'San Felipe del Agua',
+    lat: 17.0950,
+    lng: -96.7050,
     urgente: false,
     estado: 'EN_RUTA',
-    repartidor: { id: 'drv-ana', nombre: 'Ana Martínez', unidad: 'Van Eléctrica #01' },
+    repartidor: { id: 'drv-guadalupe', nombre: 'Guadalupe Mariscal', unidad: 'Camioneta Isuzu #02' },
     requiereRevision: false,
-    creadoEn: '2026-11-06T06:50:00Z',
-    actualizadoEn: '2026-11-06T08:45:00Z',
-    eta: '14:45 CST (28 min)',
-    progreso: 65,
-    notas: 'Dejar con portero del edificio si no responden.',
+    creadoEn: '2026-11-09T05:45:00Z',
+    actualizadoEn: '2026-11-09T08:15:00Z',
+    eta: '14:05 CST (4 min)',
+    progreso: 85,
+    notas: 'Portón blanco junto a la parroquia de San Felipe.',
     eventos: [
-      { tipo: 'CREADO', ocurridoEn: '6 nov 2026, 6:50 a. m.', detalle: 'Paquete recibido en centro logístico' },
-      { tipo: 'ASIGNADO', ocurridoEn: '6 nov 2026, 7:30 a. m.', detalle: 'Asignado a Ana Martínez' },
-      { tipo: 'EN_RUTA', ocurridoEn: '6 nov 2026, 8:45 a. m.', detalle: 'En camino a destino' }
+      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 5:45 a. m.', detalle: 'Paquete recibido en centro logístico' },
+      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 7:00 a. m.', detalle: 'Asignado a Guadalupe Mariscal' },
+      { tipo: 'EN_RUTA', ocurridoEn: '9 nov 2026, 8:15 a. m.', detalle: 'En tránsito hacia San Felipe del Agua' }
     ]
   },
   {
-    id: 'pkg-104926',
-    guia: 'ET-104926',
-    destinatario: 'Héctor Ramírez Benítez',
-    telefonoDestinatario: '+52 55 1100 2299',
-    direccion: 'Calle Hamburgo 82, Col. Juárez',
-    zona: 'Zona Rosa / Cuauhtémoc',
-    lat: 19.4260,
-    lng: -99.1640,
+    id: 'pkg-4219',
+    guia: 'ET-4219',
+    destinatario: 'Distribuidora del Valle Sur',
+    telefonoDestinatario: '+52 951 517 9900',
+    direccion: 'Calle Juárez #45, Santa Cruz Xoxocotlán, 71230',
+    zona: 'Santa Cruz Xoxocotlán',
+    lat: 17.0270,
+    lng: -96.7350,
     urgente: false,
+    estado: 'ENTREGADO',
+    repartidor: { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', unidad: 'Van Eléctrica #01' },
+    requiereRevision: false,
+    creadoEn: '2026-11-09T05:30:00Z',
+    actualizadoEn: '2026-11-09T11:15:00Z',
+    eta: 'Entregado 11:15 a.m.',
+    progreso: 100,
+    notas: 'Entregado con firma digital y acuse de bodega.',
+    eventos: [
+      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 5:30 a. m.', detalle: 'Paquete recibido en centro logístico' },
+      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 6:45 a. m.', detalle: 'Asignado a Xóchitl Ruiz' },
+      { tipo: 'EN_RUTA', ocurridoEn: '9 nov 2026, 7:30 a. m.', detalle: 'En camino a Xoxocotlán' },
+      { tipo: 'ENTREGADO', ocurridoEn: '9 nov 2026, 11:15 a. m.', detalle: 'Entregado a encargado de almacén. Firma y foto registradas.', firma: true, foto: true }
+    ]
+  },
+  {
+    id: 'pkg-3840',
+    guia: 'ET-3840',
+    destinatario: 'Café La Brújula / Taller Gráfico',
+    telefonoDestinatario: '+52 951 516 1234',
+    direccion: 'Calle Macedonio Alcalá #407, Centro Histórico, 68000 Oaxaca',
+    zona: 'Oaxaca Centro',
+    lat: 17.0609,
+    lng: -96.7255,
+    urgente: true,
     estado: 'FALLIDO',
-    repartidor: { id: 'drv-ana', nombre: 'Ana Martínez', unidad: 'Van Eléctrica #01' },
+    repartidor: { id: 'drv-donato', nombre: 'Donato Aquino', unidad: 'Moto Ágil #03' },
     requiereRevision: true,
-    creadoEn: '2026-11-06T07:00:00Z',
-    actualizadoEn: '2026-11-06T09:15:00Z',
+    creadoEn: '2026-11-09T07:00:00Z',
+    actualizadoEn: '2026-11-09T09:25:00Z',
     eta: 'Requiere Revisión',
     progreso: 20,
-    notas: 'Dirección no encontrada / número no visible.',
+    notas: 'Local comercial cerrado temporalmente por remodelación matutina.',
     eventos: [
-      { tipo: 'CREADO', ocurridoEn: '6 nov 2026, 7:00 a. m.', detalle: 'Paquete recibido en centro logístico' },
-      { tipo: 'ASIGNADO', ocurridoEn: '6 nov 2026, 7:35 a. m.', detalle: 'Asignado a Ana Martínez' },
-      { tipo: 'EN_RUTA', ocurridoEn: '6 nov 2026, 8:20 a. m.', detalle: 'En camino a destino' },
-      { tipo: 'FALLIDO', ocurridoEn: '6 nov 2026, 9:15 a. m.', detalle: 'Intento fallido: Número exterior inexistente en la cuadra', motivo: 'Dirección incorrecta' }
+      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 7:00 a. m.', detalle: 'Paquete recibido en centro logístico' },
+      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 7:30 a. m.', detalle: 'Asignado a Donato Aquino' },
+      { tipo: 'EN_RUTA', ocurridoEn: '9 nov 2026, 8:10 a. m.', detalle: 'En camino a Centro Histórico' },
+      { tipo: 'FALLIDO', ocurridoEn: '9 nov 2026, 9:25 a. m.', detalle: 'Intento fallido: Local cerrado / sin acceso en calle peatonal Alcalá', motivo: 'Cerrado por remodelación' }
+    ]
+  },
+  {
+    id: 'pkg-2915',
+    guia: 'ET-2915',
+    destinatario: 'Clínica del Valle / Insumos Quirúrgicos',
+    telefonoDestinatario: '+52 951 514 6677',
+    direccion: 'Av. Universidad #104, Ex-Hacienda Candiani, 68130 Oaxaca',
+    zona: 'Candiani / Universidad',
+    lat: 17.0420,
+    lng: -96.7160,
+    urgente: false,
+    estado: 'EN_RUTA',
+    repartidor: { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', unidad: 'Van Eléctrica #01' },
+    requiereRevision: false,
+    creadoEn: '2026-11-09T06:40:00Z',
+    actualizadoEn: '2026-11-09T08:45:00Z',
+    eta: '14:45 CST (28 min)',
+    progreso: 60,
+    notas: 'Dejar con encargado de farmacia hospitalaria.',
+    eventos: [
+      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 6:40 a. m.', detalle: 'Paquete recibido en centro logístico' },
+      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 7:20 a. m.', detalle: 'Asignado a Xóchitl Ruiz' },
+      { tipo: 'EN_RUTA', ocurridoEn: '9 nov 2026, 8:45 a. m.', detalle: 'En camino a Candiani' }
     ]
   }
 ];
@@ -323,7 +322,7 @@ export const DispatcherDashboard: React.FC = () => {
   const [isNewPackageModalOpen, setIsNewPackageModalOpen] = useState(false);
   const [selectedDetailPackage, setSelectedDetailPackage] = useState<PackageRecord | null>(null);
   const [reassignPackage, setReassignPackage] = useState<PackageRecord | null>(null);
-  const [selectedDriverForReassign, setSelectedDriverForReassign] = useState<string>('drv-ana');
+  const [selectedDriverForReassign, setSelectedDriverForReassign] = useState<string>('drv-xochitl');
   const [selectedVehicleForCapacity, setSelectedVehicleForCapacity] = useState<ActiveVehicle | null>(null);
   const [quickAssignPackageId, setQuickAssignPackageId] = useState<string>('');
 
@@ -412,17 +411,17 @@ export const DispatcherDashboard: React.FC = () => {
   const [formRecipient, setFormRecipient] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formAddress, setFormAddress] = useState('');
-  const [formZone, setFormZone] = useState('Polanco / Chapultepec');
-  const [formLat, setFormLat] = useState(19.4326);
-  const [formLng, setFormLng] = useState(-99.1332);
-  const [formDriverId, setFormDriverId] = useState('drv-ana');
+  const [formZone, setFormZone] = useState('Oaxaca Centro');
+  const [formLat, setFormLat] = useState(17.0603);
+  const [formLng, setFormLng] = useState(-96.7256);
+  const [formDriverId, setFormDriverId] = useState('drv-xochitl');
   const [formUrgent, setFormUrgent] = useState(false);
   const [formNotes, setFormNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Estados de Rastreo Público
-  const [trackingSearchInput, setTrackingSearchInput] = useState('ET-104921');
-  const [activeTrackingPackage, setActiveTrackingPackage] = useState<PackageRecord | null>(INITIAL_PACKAGES_RENE[1]);
+  const [trackingSearchInput, setTrackingSearchInput] = useState('ET-9482');
+  const [activeTrackingPackage, setActiveTrackingPackage] = useState<PackageRecord | null>(INITIAL_PACKAGES_RENE[0]);
 
   // Referencias a Leaflet para el tab B. Mapa & Radar
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -459,7 +458,7 @@ export const DispatcherDashboard: React.FC = () => {
       }
 
       const map = L.map(mapContainerRef.current, {
-        center: [19.4270, -99.1677],
+        center: [17.0603, -96.7256],
         zoom: 13,
         zoomControl: false,
       });
@@ -541,15 +540,15 @@ export const DispatcherDashboard: React.FC = () => {
     vehiclesLayer.clearLayers();
     routeLayer.clearLayers();
 
-    // Trazar línea de ruta 2-opt de Ana Martínez
-    const anaRouteCoords: [number, number][] = [
-      [19.4245, -99.1660], // Inicio: Van Ana Martínez
-      [19.4270, -99.1677], // Parada 1: ET-104920 (Reforma)
-      [19.4195, -99.1610], // Parada 2: ET-104921 (Roma Norte)
-      [19.3820, -99.1605], // Parada 3: ET-104925 (Del Valle)
-      [19.4260, -99.1640]  // Parada 4: ET-104926 (Juárez)
+    // Trazar línea de ruta 2-opt de Xóchitl Ruiz (Valles Centrales Oaxaca)
+    const xochitlRouteCoords: [number, number][] = [
+      [17.0635, -96.7210], // Inicio: Van Xóchitl Ruiz (Centro)
+      [17.0650, -96.7225], // Parada 1: ET-9482 (Juárez #302 Centro)
+      [17.0609, -96.7255], // Parada 2: ET-3840 (Alcalá #407 Centro)
+      [17.0420, -96.7160], // Parada 3: ET-2915 (Candiani / Universidad)
+      [17.0270, -96.7350]  // Parada 4: ET-4219 (Xoxocotlán)
     ];
-    L.polyline(anaRouteCoords, {
+    L.polyline(xochitlRouteCoords, {
       color: '#00F5A0',
       weight: 3.5,
       opacity: 0.9,
@@ -798,7 +797,7 @@ export const DispatcherDashboard: React.FC = () => {
               </span>
             </div>
             <div className="text-[11px] text-slate-400 hidden sm:block">
-              Consola Web de Despacho & Monitoreo Logístico
+              Consola Web de Despacho & Monitoreo Logístico • Sector Oaxaca Valles Centrales
             </div>
           </div>
         </div>
@@ -1102,7 +1101,7 @@ export const DispatcherDashboard: React.FC = () => {
                                 <button
                                   onClick={() => {
                                     setReassignPackage(pkg);
-                                    setSelectedDriverForReassign(pkg.repartidor?.id || 'drv-ana');
+                                    setSelectedDriverForReassign(pkg.repartidor?.id || 'drv-xochitl');
                                   }}
                                   className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold border border-slate-700 transition"
                                 >
@@ -1332,19 +1331,41 @@ export const DispatcherDashboard: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Botón de Recentrado */}
-                <button
-                  onClick={() => {
-                    if (mapInstanceRef.current) {
-                      mapInstanceRef.current.flyTo([19.4270, -99.1677], 13);
-                    }
-                  }}
-                  className="px-2.5 py-1.5 rounded-xl bg-[#0F172A] border border-slate-700 text-slate-300 hover:text-white hover:border-blue-400 text-[11px] font-bold flex items-center gap-1 transition"
-                  title="Centrar en CDMX"
-                >
-                  <Navigation className="w-3.5 h-3.5" />
-                  <span>Centrar</span>
-                </button>
+                {/* Centrado Rápido en Valles Centrales Oaxaca */}
+                <div className="flex items-center gap-1 bg-[#070B14] p-1 rounded-xl border border-slate-800 text-[11px]">
+                  <span className="text-slate-500 font-bold px-1.5 flex items-center gap-1">
+                    <Navigation className="w-3 h-3 text-blue-400" />
+                    <span className="hidden sm:inline">Centrar:</span>
+                  </span>
+                  <button
+                    onClick={() => mapInstanceRef.current?.flyTo([17.0603, -96.7256], 14)}
+                    className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                    title="Centro Histórico de Oaxaca"
+                  >
+                    Centro
+                  </button>
+                  <button
+                    onClick={() => mapInstanceRef.current?.flyTo([17.0782, -96.7135], 15)}
+                    className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                    title="Colonia Reforma"
+                  >
+                    Reforma
+                  </button>
+                  <button
+                    onClick={() => mapInstanceRef.current?.flyTo([17.0950, -96.7050], 15)}
+                    className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                    title="San Felipe del Agua"
+                  >
+                    San Felipe
+                  </button>
+                  <button
+                    onClick={() => mapInstanceRef.current?.flyTo([17.0270, -96.7350], 14)}
+                    className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                    title="Santa Cruz Xoxocotlán"
+                  >
+                    Xoxocotlán
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1701,7 +1722,7 @@ export const DispatcherDashboard: React.FC = () => {
                     required
                     value={formPhone}
                     onChange={(e) => setFormPhone(e.target.value)}
-                    placeholder="+52 55 4123 9901"
+                    placeholder="+52 951 516 4020"
                     className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -1711,7 +1732,7 @@ export const DispatcherDashboard: React.FC = () => {
                     type="text"
                     value={formZone}
                     onChange={(e) => setFormZone(e.target.value)}
-                    placeholder="Polanco / Cuauhtémoc"
+                    placeholder="Oaxaca Centro / Reforma"
                     className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -1724,7 +1745,7 @@ export const DispatcherDashboard: React.FC = () => {
                   required
                   value={formAddress}
                   onChange={(e) => setFormAddress(e.target.value)}
-                  placeholder="Av. Paseo de la Reforma 222..."
+                  placeholder="Av. Benito Juárez #302, Oaxaca Centro..."
                   className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
