@@ -21,9 +21,9 @@ const prisma = new PrismaClient();
 function buildApp() {
   const app = express();
   app.use(express.json());
-  app.use((req: Request & { user?: { id: string } }, _res: Response, next: NextFunction) => {
+  app.use((req: Request, _res: Response, next: NextFunction) => {
     const id = req.header('x-test-user');
-    if (id) req.user = { id };
+    if (id) req.user = { id, email: `${id}@int.test`, rol: 'REPARTIDOR' };
     next();
   });
   app.use('/api/sync', createSyncRouter(createPrismaSyncStore(prisma)));

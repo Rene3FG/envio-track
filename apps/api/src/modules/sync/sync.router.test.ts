@@ -14,10 +14,10 @@ const store: SyncStore = {
   saveEvent: async () => undefined,
 };
 
-function appWith(user: { id: string } | undefined) {
+function appWith(id: string | undefined) {
   const app = express();
   app.use(express.json());
-  app.use((req, _res, next) => { (req as express.Request & { user?: { id: string } }).user = user; next(); });
+  app.use((req, _res, next) => { req.user = id ? { id, email: `${id}@envio.test`, rol: 'REPARTIDOR' } : undefined; next(); });
   app.use('/api/sync', createSyncRouter(store));
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     res.status(err instanceof ZodError ? 400 : 500).json({ error: { code: err instanceof ZodError ? 'VALIDATION_ERROR' : 'INTERNAL' } });
@@ -27,14 +27,14 @@ function appWith(user: { id: string } | undefined) {
 
 describe('POST /api/sync', () => {
   it('200 con resultados por evento', async () => {
-    const res = await request(appWith({ id: 'driver-1' })).post('/api/sync').send({
+    const res = await request(appWith('driver-1')).post('/api/sync').send({
       events: [{ clientEventId: U, packageId: PKG, tipo: 'EN_RUTA', ocurridoEn: '2026-10-30T10:00:00.000Z' }],
     });
     expect(res.status).toBe(200);
     expect(res.body.results[0]).toMatchObject({ clientEventId: U, status: 'ACCEPTED', packageEstado: 'EN_RUTA' });
   });
   it('400 si el body no cumple el contrato', async () => {
-    const res = await request(appWith({ id: 'driver-1' })).post('/api/sync').send({ events: [] });
+    const res = await request(appWith('driver-1')).post('/api/sync').send({ events: [] });
     expect(res.status).toBe(400);
   });
   it('401 sin usuario autenticado', async () => {
