@@ -695,9 +695,6 @@ export const DispatcherDashboard: React.FC = () => {
               <span className="font-extrabold text-base tracking-tight text-white">
                 Envío<span className="text-blue-500">Track</span>
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-950/80 text-blue-400 border border-blue-800/60 font-semibold">
-                STITCH AI STUDIO
-              </span>
             </div>
             <div className="text-[11px] text-slate-400 hidden sm:block">
               Consola Web de Despacho & Monitoreo Logístico
@@ -1118,11 +1115,11 @@ export const DispatcherDashboard: React.FC = () => {
         {/* VISTA 2: B. RADAR TÁCTICO & MAPA (Menú integrado al lado) */}
         {/* --------------------------------------------------------- */}
         {mainNavTab === 'mapa' && (
-          <div className="flex-1 w-full h-[calc(100vh-105px)] min-h-[550px] relative flex overflow-hidden">
+          <div className="flex-1 w-full h-[calc(100vh-64px)] min-h-[600px] relative flex overflow-hidden">
             
             {/* Mapa Leaflet Full Screen */}
-            <div className="flex-1 relative h-full min-h-[550px] bg-[#070B14]">
-              <div ref={mapContainerRef} className="w-full h-full min-h-[550px] z-10" />
+            <div className="flex-1 relative h-full min-h-[600px] bg-[#070B14]">
+              <div ref={mapContainerRef} className="w-full h-full min-h-[600px] z-10" />
 
               {/* Controles Flotantes Superiores en el Mapa */}
               <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2 bg-[#0B111E]/95 backdrop-blur-md p-2 rounded-2xl border border-slate-800 shadow-2xl text-xs font-mono max-w-[calc(100%-2rem)]">
@@ -1729,18 +1726,9 @@ export const DispatcherDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Footer Global */}
-      <footer className="h-10 bg-[#0B111E] border-t border-slate-800 px-6 flex items-center justify-between text-[11px] font-mono text-slate-500">
-        <div>EnvíoTrack • Proyecto Escolar de Paquetería & Rúbrica de Diseño</div>
-        <div className="flex items-center gap-4">
-          <span className="text-emerald-400 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            WCAG AA Conforme
-          </span>
-          <span>Leaflet + OpenStreetMap sin API Keys</span>
-        </div>
-      </footer>
-
+      {/* ========================================================= */}
+      {/* MODALES Y CIERRE */}
+      {/* ========================================================= */}
     </div>
   );
 };
