@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 
 // ==========================================
-// Datos Iniciales (Basados en la propuesta de René)
+// Datos Iniciales de Operación Logística (Oaxaca)
 // ==========================================
 const MOCK_DRIVERS_LIST: DriverItem[] = [
   { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', unidad: 'Van Eléctrica #01', tipo: 'EV', telefono: '+52 951 120 4411', activo: true, paquetesAsignados: 3, capacidadMaxima: 15, bateria: 94, zona: 'Oaxaca Centro / Jalatlaco' },
@@ -129,7 +129,7 @@ export const ACTIVE_FLEET_VEHICLES: ActiveVehicle[] = [
   },
 ];
 
-const INITIAL_PACKAGES_RENE: PackageRecord[] = [
+const INITIAL_PACKAGES: PackageRecord[] = [
   {
     id: 'pkg-9482',
     guia: 'ET-9482',
@@ -303,7 +303,7 @@ export const DispatcherDashboard: React.FC = () => {
   const { logout } = useAuth();
 
   // Estados principales
-  const [packages, setPackages] = useState<PackageRecord[]>(INITIAL_PACKAGES_RENE);
+  const [packages, setPackages] = useState<PackageRecord[]>(INITIAL_PACKAGES);
   const [drivers] = useState<DriverItem[]>(MOCK_DRIVERS_LIST);
   
   // Pestaña Principal Superior (Consola Web Despacho, Radar Táctico y Rastreo Público)
@@ -421,7 +421,7 @@ export const DispatcherDashboard: React.FC = () => {
 
   // Estados de Rastreo Público
   const [trackingSearchInput, setTrackingSearchInput] = useState('ET-9482');
-  const [activeTrackingPackage, setActiveTrackingPackage] = useState<PackageRecord | null>(INITIAL_PACKAGES_RENE[0]);
+  const [activeTrackingPackage, setActiveTrackingPackage] = useState<PackageRecord | null>(INITIAL_PACKAGES[0]);
 
   // Referencias a Leaflet para el tab B. Mapa & Radar
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -781,7 +781,7 @@ export const DispatcherDashboard: React.FC = () => {
     <div className="min-h-screen bg-[#070B14] text-[#DDE2F0] flex flex-col font-sans select-none">
       
       {/* ========================================================= */}
-      {/* 1. TOP HEADER MULTIPLATAFORMA (Propuesta René + Menú Mapa) */}
+      {/* 1. TOP HEADER MULTIPLATAFORMA                             */}
       {/* ========================================================= */}
       <header className="h-16 bg-[#0B111E] border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between gap-4 sticky top-0 z-40 shadow-lg">
         
@@ -802,7 +802,7 @@ export const DispatcherDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* NAVEGACIÓN GLOBAL PRINCIPAL (Web Despacho, Radar y Rastreo) */}
+        {/* NAVEGACIÓN GLOBAL PRINCIPAL (Web Despacho, Mapa y Rastreo) */}
         <nav className="flex items-center gap-1.5 bg-[#0F172A] p-1 rounded-xl border border-slate-800">
           
           <button
@@ -827,7 +827,7 @@ export const DispatcherDashboard: React.FC = () => {
             }`}
           >
             <Navigation className="w-4 h-4" />
-            <span>B. Radar Táctico & Mapa</span>
+            <span>B. Mapa de Flota & Rutas</span>
           </button>
 
           <button
@@ -862,12 +862,12 @@ export const DispatcherDashboard: React.FC = () => {
       </header>
 
       {/* ========================================================= */}
-      {/* 2. CONTENIDO SEGÚN LA PESTAÑA PRINCIPAL ACTIVA */}
+      {/* 2. CONTENIDO SEGÚN LA PESTAÑA PRINCIPAL ACTIVA            */}
       {/* ========================================================= */}
       <main className={`flex-1 flex flex-col min-h-0 ${mainNavTab === 'mapa' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
 
         {/* --------------------------------------------------------- */}
-        {/* VISTA 1: A. WEB DESPACHO (ADMIN) - Diseño René de la foto */}
+        {/* VISTA 1: A. WEB DESPACHO (ADMIN)                          */}
         {/* --------------------------------------------------------- */}
         {mainNavTab === 'admin' && (
           <div className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6">
@@ -922,7 +922,7 @@ export const DispatcherDashboard: React.FC = () => {
               </button>
             </div>
 
-            {/* SUB-VISTA: TABLA DE PAQUETES (Foto 1 y 2 de René) */}
+            {/* SUB-VISTA: TABLA DE PAQUETES */}
             {adminSubTab === 'tabla' && (
               <div className="bg-[#0B111E] rounded-2xl border border-slate-800 shadow-xl overflow-hidden flex flex-col">
                 
@@ -996,7 +996,7 @@ export const DispatcherDashboard: React.FC = () => {
 
                 </div>
 
-                {/* Tabla de Paquetes Idéntica a la Foto de René */}
+                {/* Tabla de Paquetes */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-[#0F172A] text-slate-400 font-mono uppercase text-[10px] tracking-wider border-b border-slate-800">
@@ -1238,7 +1238,7 @@ export const DispatcherDashboard: React.FC = () => {
                 </div>
 
                 <div className="bg-[#0B111E] p-6 rounded-2xl border border-slate-800 shadow">
-                  <div className="text-xs font-mono text-slate-400 uppercase">Eficiencia Dinámica 2-OPT</div>
+                  <div className="text-xs font-mono text-slate-400 uppercase">Eficiencia de Recorrido</div>
                   <div className="text-3xl font-black text-blue-400 mt-2">98.4%</div>
                   <div className="text-xs text-slate-400 mt-1">Tiempo Real • 0 cruces</div>
                 </div>
@@ -1255,7 +1255,7 @@ export const DispatcherDashboard: React.FC = () => {
         )}
 
         {/* --------------------------------------------------------- */}
-        {/* VISTA 2: B. RADAR TÁCTICO & MAPA (Menú integrado al lado) */}
+        {/* VISTA 2: B. MAPA DE FLOTA & RUTAS                        */}
         {/* --------------------------------------------------------- */}
         {mainNavTab === 'mapa' && (
           <div className="flex-1 w-full h-[calc(100vh-64px)] min-h-[600px] relative flex overflow-hidden">
@@ -1488,7 +1488,7 @@ export const DispatcherDashboard: React.FC = () => {
         )}
 
         {/* --------------------------------------------------------- */}
-        {/* VISTA 3: C. RASTREO PÚBLICO (Fotos 3 y 4 de René) */}
+        {/* VISTA 3: C. RASTREO PÚBLICO                              */}
         {/* --------------------------------------------------------- */}
         {mainNavTab === 'tracking' && (
           <div className="p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto flex flex-col gap-6">
@@ -1515,7 +1515,7 @@ export const DispatcherDashboard: React.FC = () => {
                     type="text"
                     value={trackingSearchInput}
                     onChange={(e) => setTrackingSearchInput(e.target.value.toUpperCase())}
-                    placeholder="ET-104921"
+                    placeholder="ET-9482"
                     className="w-full bg-[#070B14] border border-slate-700 rounded-xl pl-10 pr-3 py-2.5 text-sm font-mono text-white uppercase placeholder-slate-600 focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -1530,8 +1530,8 @@ export const DispatcherDashboard: React.FC = () => {
 
               {/* Chips de Guías de Prueba */}
               <div className="flex items-center gap-2 flex-wrap justify-center text-xs font-mono text-slate-400 mt-2">
-                <span>Guías de prueba:</span>
-                {['ET-104920', 'ET-104921', 'ET-104922', 'ET-104924', 'ET-999999'].map((g) => (
+                <span>Guías activas:</span>
+                {['ET-9482', 'ET-7103', 'ET-6320', 'ET-5012', 'ET-4219', 'ET-3840', 'ET-2915'].map((g) => (
                   <button
                     key={g}
                     onClick={() => {
@@ -1550,7 +1550,7 @@ export const DispatcherDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Resultado de Rastreo (Idéntico a la Foto 4 de René) */}
+            {/* Resultado de Rastreo */}
             {activeTrackingPackage ? (
               <div className="bg-[#0B111E] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col gap-6">
                 

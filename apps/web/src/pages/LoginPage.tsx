@@ -19,7 +19,7 @@ import {
 
 export const LoginPage: React.FC = () => {
   const [profile, setProfile] = useState<'despacho' | 'ruta'>('despacho');
-  const [email, setEmail] = useState('admin@droptrack.com');
+  const [email, setEmail] = useState('admin@enviotrack.com');
   const [password, setPassword] = useState('cambiar123');
   const [trackingCode, setTrackingCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -29,11 +29,11 @@ export const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Reloj UTC en vivo
+  // Reloj local en vivo
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setUtcTime(now.toTimeString().split(' ')[0] + ' UTC');
+      setUtcTime(now.toTimeString().split(' ')[0]);
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
@@ -44,8 +44,8 @@ export const LoginPage: React.FC = () => {
   const authenticateAsDemo = (targetProfile: 'despacho' | 'ruta') => {
     const demoUser = {
       id: targetProfile === 'despacho' ? 'demo-admin-1' : 'demo-driver-1',
-      nombre: targetProfile === 'despacho' ? 'Controlador Alpha-01' : 'Xóchitl Ruiz (Unidad 04)',
-      email: targetProfile === 'despacho' ? 'admin@droptrack.com' : 'xochitl@droptrack.com',
+      nombre: targetProfile === 'despacho' ? 'Administrador Despacho' : 'Xóchitl Ruiz (Unidad 01)',
+      email: targetProfile === 'despacho' ? 'admin@enviotrack.com' : 'xochitl@enviotrack.com',
       rol: targetProfile === 'despacho' ? ('ADMIN' as const) : ('REPARTIDOR' as const),
       activo: true,
       creadoEn: new Date().toISOString(),
@@ -92,7 +92,7 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#080E17] text-[#DDE2F0] flex flex-col font-sans select-none relative overflow-hidden">
       
-      {/* Fondo Táctico Sutil: Cuadrícula mil-spec + Resplandor ambiental de Radar */}
+      {/* Fondo de Cuadrícula */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-40">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -193,7 +193,7 @@ export const LoginPage: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@droptrack.com"
+                  placeholder="admin@enviotrack.com"
                   className="w-full bg-[#080E17] border border-white/10 rounded-xl px-3.5 py-2.5 pl-10 text-xs font-mono text-white placeholder-slate-600 focus:border-[#00F5A0] focus:ring-1 focus:ring-[#00F5A0]/30 focus:outline-none transition"
                 />
               </div>
@@ -287,14 +287,14 @@ export const LoginPage: React.FC = () => {
             <div className="grid grid-cols-1 gap-2">
               <button
                 type="button"
-                onClick={() => fillAndLogin('admin@droptrack.com', 'cambiar123', 'despacho')}
+                onClick={() => fillAndLogin('admin@enviotrack.com', 'cambiar123', 'despacho')}
                 className="p-2.5 bg-[#141C2B] border border-[#00F5A0]/30 hover:border-[#00F5A0] rounded-xl text-left transition hover:bg-[#161F2E] group"
               >
                 <div className="font-bold text-[#00F5A0] text-xs flex items-center justify-between">
                   <span>Operador de Despacho & Recepción</span>
                   <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
                 </div>
-                <div className="text-[10px] text-slate-400">admin@droptrack.com &bull; Acceso Total a Consola Web</div>
+                <div className="text-[10px] text-slate-400">admin@enviotrack.com &bull; Acceso Total a Consola Web</div>
               </button>
             </div>
           </div>
