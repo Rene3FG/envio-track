@@ -13,12 +13,11 @@ import {
   ShieldCheck,
   Radio,
   Compass,
-  Search,
-  Lock
+  Search
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const [profile, setProfile] = useState<'despacho' | 'ruta'>('despacho');
+  const [profile] = useState<'despacho' | 'ruta'>('despacho');
   const [email, setEmail] = useState('admin@enviotrack.com');
   const [password, setPassword] = useState('cambiar123');
   const [trackingCode, setTrackingCode] = useState('');
@@ -82,13 +81,6 @@ export const LoginPage: React.FC = () => {
     navigate(`/tracking?guia=${encodeURIComponent(trackingCode.trim().toUpperCase())}`);
   };
 
-  const fillAndLogin = (demoEmail: string, demoPass: string, targetProfile: 'despacho' | 'ruta') => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setProfile(targetProfile);
-    authenticateAsDemo(targetProfile);
-  };
-
   return (
     <div className="min-h-screen bg-[#080E17] text-[#DDE2F0] flex flex-col font-sans select-none relative overflow-hidden">
       
@@ -139,18 +131,10 @@ export const LoginPage: React.FC = () => {
         <div className="w-full max-w-md bg-[#0E141D]/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_25px_rgba(0,245,160,0.08)] flex flex-col gap-6">
           
           {/* Cabecera del Formulario */}
-          <div className="text-center space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#161F2E] border border-[#00F5A0]/30 text-[10px] font-mono text-[#00F5A0]">
-              <Lock className="w-3 h-3 text-[#00F5A0]" />
-              <span>TERMINAL DE ACCESO SEGURO</span>
-            </div>
-
+          <div className="text-center">
             <h1 className="text-2xl font-black tracking-tight text-white">
               Centro de Mando
             </h1>
-            <p className="text-xs text-slate-400">
-              Consola web de administración, recepción y despacho logístico en tiempo real.
-            </p>
           </div>
 
           {/* Indicador de Consola Central */}
@@ -276,27 +260,6 @@ export const LoginPage: React.FC = () => {
                 <ArrowRight className="w-3 h-3 text-[#4CD6FB]" />
               </button>
             </form>
-          </div>
-
-          {/* Credenciales de Prueba Asistidas (1-Click) */}
-          <div className="pt-2 border-t border-white/10 space-y-2 font-mono text-xs">
-            <div className="flex items-center justify-between text-slate-400 text-[11px]">
-              <span>CREDENCIALES DE PRUEBA:</span>
-              <span className="text-[#00F5A0]">Click para autollenar y entrar</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => fillAndLogin('admin@enviotrack.com', 'cambiar123', 'despacho')}
-                className="p-2.5 bg-[#141C2B] border border-[#00F5A0]/30 hover:border-[#00F5A0] rounded-xl text-left transition hover:bg-[#161F2E] group"
-              >
-                <div className="font-bold text-[#00F5A0] text-xs flex items-center justify-between">
-                  <span>Operador de Despacho & Recepción</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
-                </div>
-                <div className="text-[10px] text-slate-400">admin@enviotrack.com &bull; Acceso Total a Consola Web</div>
-              </button>
-            </div>
           </div>
 
         </div>
