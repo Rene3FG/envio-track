@@ -3,11 +3,13 @@ import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import L from 'leaflet';
 import { PackageRecord, DriverItem } from '../types/dispatch';
+import { PackageFormModal, PackageFormValues } from '../components/PackageFormModal';
 import {
   Truck,
   Package,
   AlertTriangle,
   Plus,
+  Pencil,
   Search,
   LogOut,
   X,
@@ -407,17 +409,16 @@ export const DispatcherDashboard: React.FC = () => {
     return () => window.removeEventListener('inspect-vehicle', handleInspect);
   }, []);
 
-  // Formulario de Alta de Envío
-  const [formRecipient, setFormRecipient] = useState('');
-  const [formPhone, setFormPhone] = useState('');
-  const [formAddress, setFormAddress] = useState('');
-  const [formZone, setFormZone] = useState('Oaxaca Centro');
-  const [formLat, setFormLat] = useState(17.0603);
-  const [formLng, setFormLng] = useState(-96.7256);
-  const [formDriverId, setFormDriverId] = useState('drv-xochitl');
-  const [formUrgent, setFormUrgent] = useState(false);
-  const [formNotes, setFormNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Estados de Edición y Feedback
+  const [editingPackage, setEditingPackage] = useState<PackageRecord | null>(null);
+  const [feedbackBanner, setFeedbackBanner] = useState<string | null>(null);
+
+  const showFeedback = (message: string) => {
+    setFeedbackBanner(message);
+    setTimeout(() => {
+      setFeedbackBanner((current) => (current === message ? null : current));
+    }, 3500);
+  };
 
   // Estados de Rastreo Público
   const [trackingSearchInput, setTrackingSearchInput] = useState('ET-9482');
@@ -694,60 +695,156 @@ export const DispatcherDashboard: React.FC = () => {
 
   const revisionCount = packages.filter((p) => p.requiereRevision).length;
 
-  // Manejar creación de nuevo paquete
-  const handleCreatePackage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  // Crear paquete
+  const handleCreatePackage = async (values: PackageFormValues) => {
+    const driverObj = values.driverId ? drivers.find((d) => d.id === values.driverId) : undefined;
+    let createdId = `pkg-${Date.now()}`;
+    let createdGuia = `ET-${Math.floor(100000 + Math.random() * 900000)}`;
+    const timestampLabel = new Date().toLocaleDateString('es-MX', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
-    const driverObj = drivers.find((d) => d.id === formDriverId);
-    const newGuia = `ET-${Math.floor(100000 + Math.random() * 900000)}`;
+    try {
+      const response = await apiClient.post<{ id?: string; guia?: string }>('/packages', {
+        destinatario: values.destinatario,
+        telefonoDestinatario: values.telefonoDestinatario || undefined,
+        direccion: values.direccion,
+        referencias: values.referencias || undefined,
+        lat: values.lat,
+        lng: values.lng,
+        urgente: values.urgente,
+      });
+
+      if (response.data?.id) createdId = response.data.id;
+      if (response.data?.guia) createdGuia = response.data.guia;
+
+      if (driverObj) {
+        await apiClient.post(`/packages/${createdId}/assignment`, {
+          repartidorId: driverObj.id,
+        });
+      }
+    } catch {
+      // Estado local si la API no está disponible
+    }
+
+    const eventos: PackageRecord['eventos'] = [
+      {
+        tipo: 'CREADO',
+        ocurridoEn: timestampLabel,
+        detalle: `Paquete recibido en centro logístico (${values.zona})`,
+      },
+    ];
+
+    if (driverObj) {
+      eventos.push({
+        tipo: 'ASIGNADO',
+        ocurridoEn: timestampLabel,
+        detalle: `Asignado a ${driverObj.nombre} (${driverObj.unidad})`,
+      });
+    }
 
     const newPkg: PackageRecord = {
-      id: `pkg-${Date.now()}`,
-      guia: newGuia,
-      destinatario: formRecipient.trim(),
-      telefonoDestinatario: formPhone.trim(),
-      direccion: formAddress.trim(),
-      zona: formZone,
-      lat: formLat,
-      lng: formLng,
-      urgente: formUrgent,
-      estado: formDriverId ? 'ASIGNADO' : 'REGISTRADO',
-      repartidor: driverObj ? { id: driverObj.id, nombre: driverObj.nombre, unidad: driverObj.unidad } : null,
+      id: createdId,
+      guia: createdGuia,
+      destinatario: values.destinatario,
+      telefonoDestinatario: values.telefonoDestinatario || 'Sin teléfono',
+      direccion: values.direccion,
+      zona: values.zona,
+      lat: values.lat,
+      lng: values.lng,
+      urgente: values.urgente,
+      estado: driverObj ? 'ASIGNADO' : 'REGISTRADO',
+      repartidor: driverObj
+        ? { id: driverObj.id, nombre: driverObj.nombre, unidad: driverObj.unidad }
+        : null,
       requiereRevision: false,
       creadoEn: new Date().toISOString(),
       actualizadoEn: new Date().toISOString(),
-      eta: 'En preparación',
-      progreso: 25,
-      notas: formNotes.trim(),
-      eventos: [
-        { tipo: 'CREADO', ocurridoEn: new Date().toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }), detalle: 'Paquete recibido en centro logístico' }
-      ]
+      eta: driverObj ? 'En preparación' : 'Pendiente Chofer',
+      progreso: driverObj ? 25 : 10,
+      referencias: values.referencias,
+      notas: values.referencias,
+      eventos,
     };
 
-    try {
-      await apiClient.post('/packages', {
-        destinatario: newPkg.destinatario,
-        telefonoDestinatario: newPkg.telefonoDestinatario,
-        direccion: newPkg.direccion,
-        lat: newPkg.lat,
-        lng: newPkg.lng,
-        urgente: newPkg.urgente,
-      });
-    } catch {
-      // Estado local si la API está offline
-    }
-
     setPackages((prev) => [newPkg, ...prev]);
-    setIsSubmitting(false);
     setIsNewPackageModalOpen(false);
+    showFeedback(`Guía ${createdGuia} registrada correctamente (${values.zona}).`);
   };
 
-  // Manejar reasignación de chofer
-  const handleExecuteReassign = () => {
+  // Editar paquete
+  const handleUpdatePackage = async (values: PackageFormValues) => {
+    if (!editingPackage) return;
+
+    const targetId = editingPackage.id;
+    const targetGuia = editingPackage.guia;
+    const nowIso = new Date().toISOString();
+    const timestampLabel = new Date().toLocaleDateString('es-MX', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    try {
+      await apiClient.patch(`/packages/${targetId}`, {
+        destinatario: values.destinatario,
+        telefonoDestinatario: values.telefonoDestinatario || undefined,
+        direccion: values.direccion,
+        referencias: values.referencias || undefined,
+        lat: values.lat,
+        lng: values.lng,
+        urgente: values.urgente,
+      });
+    } catch {
+      // Estado local si la API no está disponible
+    }
+
+    const updatedPkg: PackageRecord = {
+      ...editingPackage,
+      destinatario: values.destinatario,
+      telefonoDestinatario: values.telefonoDestinatario || 'Sin teléfono',
+      direccion: values.direccion,
+      zona: values.zona,
+      lat: values.lat,
+      lng: values.lng,
+      urgente: values.urgente,
+      referencias: values.referencias,
+      notas: values.referencias,
+      actualizadoEn: nowIso,
+      eventos: [
+        ...editingPackage.eventos,
+        {
+          tipo: 'ACTUALIZADO',
+          ocurridoEn: timestampLabel,
+          detalle: `Datos de entrega actualizados (${values.zona} • ${values.lat.toFixed(4)}, ${values.lng.toFixed(4)})`,
+        },
+      ],
+    };
+
+    setPackages((prev) => prev.map((pkg) => (pkg.id === targetId ? updatedPkg : pkg)));
+    setSelectedDetailPackage((prev) => (prev?.id === targetId ? updatedPkg : prev));
+    setActiveTrackingPackage((prev) => (prev?.id === targetId ? updatedPkg : prev));
+    setEditingPackage(null);
+    showFeedback(`Cambios guardados en la guía ${targetGuia}.`);
+  };
+
+  // Reasignar chofer
+  const handleExecuteReassign = async () => {
     if (!reassignPackage) return;
     const targetDriver = drivers.find((d) => d.id === selectedDriverForReassign);
     if (!targetDriver) return;
+
+    try {
+      await apiClient.post(`/packages/${reassignPackage.id}/assignment`, {
+        repartidorId: targetDriver.id,
+      });
+    } catch {
+      // Estado local si la API no está disponible
+    }
 
     setPackages((prev) =>
       prev.map((pkg) =>
@@ -755,7 +852,8 @@ export const DispatcherDashboard: React.FC = () => {
           ? {
               ...pkg,
               repartidor: { id: targetDriver.id, nombre: targetDriver.nombre, unidad: targetDriver.unidad },
-              estado: pkg.estado === 'REGISTRADO' ? 'ASIGNADO' : pkg.estado,
+              estado: pkg.estado === 'REGISTRADO' || pkg.estado === 'FALLIDO' ? 'ASIGNADO' : pkg.estado,
+              actualizadoEn: new Date().toISOString(),
               eventos: [
                 ...pkg.eventos,
                 { tipo: 'ASIGNADO', ocurridoEn: new Date().toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }), detalle: `Reasignado a ${targetDriver.nombre}` }
@@ -764,6 +862,7 @@ export const DispatcherDashboard: React.FC = () => {
           : pkg
       )
     );
+    showFeedback(`Guía ${reassignPackage.guia} asignada a ${targetDriver.nombre}.`);
     setReassignPackage(null);
   };
 
@@ -1120,6 +1219,19 @@ export const DispatcherDashboard: React.FC = () => {
                                     Reprogramar
                                   </button>
                                 )}
+
+                                <button
+                                  onClick={() => setEditingPackage(pkg)}
+                                  disabled={pkg.estado === 'ENTREGADO'}
+                                  title={
+                                    pkg.estado === 'ENTREGADO'
+                                      ? 'No se puede editar un paquete ya entregado'
+                                      : 'Editar datos y ubicación del paquete'
+                                  }
+                                  className="p-1 rounded-lg hover:bg-slate-800 text-amber-400 hover:text-amber-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
 
                                 <button
                                   onClick={() => setSelectedDetailPackage(pkg)}
@@ -1687,166 +1799,33 @@ export const DispatcherDashboard: React.FC = () => {
       {/* ========================================================= */}
       {/* 3. MODAL: NUEVO PAQUETE */}
       {/* ========================================================= */}
+      {/* Modales de alta y edición de paquetes */}
       {isNewPackageModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="bg-[#0B111E] border border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
-            
-            <div className="p-5 border-b border-slate-800 flex justify-between items-center sticky top-0 bg-[#0B111E] z-10">
-              <h3 className="font-bold text-base text-white flex items-center gap-2">
-                <Plus className="w-4 h-4 text-blue-500" />
-                <span>Alta de Nuevo Envío</span>
-              </h3>
-              <button onClick={() => setIsNewPackageModalOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <PackageFormModal
+          mode="create"
+          drivers={drivers}
+          getDriverLoad={getDriverLoad}
+          onClose={() => setIsNewPackageModalOpen(false)}
+          onSubmit={handleCreatePackage}
+        />
+      )}
 
-            <form onSubmit={handleCreatePackage} className="p-6 space-y-4 text-xs font-mono">
-              <div>
-                <label className="block text-slate-300 mb-1">Nombre Completo del Destinatario *</label>
-                <input
-                  type="text"
-                  required
-                  value={formRecipient}
-                  onChange={(e) => setFormRecipient(e.target.value)}
-                  placeholder="Lic. Frida Cosijoeza Mendoza"
-                  className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
+      {editingPackage && (
+        <PackageFormModal
+          mode="edit"
+          initialPackage={editingPackage}
+          drivers={drivers}
+          getDriverLoad={getDriverLoad}
+          onClose={() => setEditingPackage(null)}
+          onSubmit={handleUpdatePackage}
+        />
+      )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 mb-1">Teléfono Móvil *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    placeholder="+52 951 516 4020"
-                    className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-300 mb-1">Zona / Cuadrante</label>
-                  <input
-                    type="text"
-                    value={formZone}
-                    onChange={(e) => setFormZone(e.target.value)}
-                    placeholder="Oaxaca Centro / Reforma"
-                    className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 mb-1">Dirección Completa *</label>
-                <input
-                  type="text"
-                  required
-                  value={formAddress}
-                  onChange={(e) => setFormAddress(e.target.value)}
-                  placeholder="Av. Benito Juárez #302, Oaxaca Centro..."
-                  className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 text-[10px]">Latitud</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={formLat}
-                    onChange={(e) => setFormLat(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-[#070B14] border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 text-[10px]">Longitud</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={formLng}
-                    onChange={(e) => setFormLng(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-[#070B14] border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 mb-1">Chofer Asignado</label>
-                <select
-                  value={formDriverId}
-                  onChange={(e) => setFormDriverId(e.target.value)}
-                  className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white cursor-pointer"
-                >
-                  {drivers.map((d) => {
-                    const dLoad = getDriverLoad(d.id, d.capacidadMaxima);
-                    return (
-                      <option key={d.id} value={d.id} className="bg-[#0B111E]">
-                        {d.nombre} — {d.unidad} [{dLoad.current}/{d.capacidadMaxima} cargados • {dLoad.isFull ? '⛔ LLENO' : `🟢 ${dLoad.available} libres`}]
-                      </option>
-                    );
-                  })}
-                </select>
-                {(() => {
-                  const targetDrv = drivers.find((d) => d.id === formDriverId);
-                  if (!targetDrv) return null;
-                  const dLoad = getDriverLoad(targetDrv.id, targetDrv.capacidadMaxima);
-                  if (dLoad.isFull) {
-                    return (
-                      <p className="text-[11px] text-amber-400 mt-1.5 flex items-center gap-1 font-mono">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span>Aviso: {targetDrv.nombre} ya tiene su capacidad completa ({dLoad.current}/{targetDrv.capacidadMaxima}).</span>
-                      </p>
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
-
-              <div>
-                <label className="block text-slate-300 mb-1">Notas / Referencias de Entrega</label>
-                <input
-                  type="text"
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="Piso 8, timbre B, dejar con recepción..."
-                  className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="p-3 bg-[#0F172A] rounded-xl flex items-center justify-between">
-                <span className="font-bold text-white flex items-center gap-1.5">
-                  <span>⚡ Marcar como URGENTE</span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={formUrgent}
-                  onChange={(e) => setFormUrgent(e.target.checked)}
-                  className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsNewPackageModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold"
-                >
-                  Crear Guía
-                </button>
-              </div>
-            </form>
-
-          </div>
+      {/* Notificación flotante de confirmación */}
+      {feedbackBanner && (
+        <div className="fixed bottom-5 right-5 z-50 px-4 py-3 rounded-2xl bg-[#0B111E] border border-emerald-500/50 text-emerald-300 text-xs font-mono shadow-2xl flex items-center gap-2.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+          <span>{feedbackBanner}</span>
         </div>
       )}
 
@@ -1863,9 +1842,24 @@ export const DispatcherDashboard: React.FC = () => {
                   {selectedDetailPackage.estado}
                 </span>
               </div>
-              <button onClick={() => setSelectedDetailPackage(null)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedDetailPackage.estado !== 'ENTREGADO' && (
+                  <button
+                    onClick={() => {
+                      const pkgToEdit = selectedDetailPackage;
+                      setSelectedDetailPackage(null);
+                      setEditingPackage(pkgToEdit);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-mono font-semibold flex items-center gap-1 transition"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    <span>Editar</span>
+                  </button>
+                )}
+                <button onClick={() => setSelectedDetailPackage(null)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2 text-xs">
@@ -1873,6 +1867,10 @@ export const DispatcherDashboard: React.FC = () => {
               <div><strong className="text-slate-400">Teléfono:</strong> <span className="text-slate-300 font-mono">{selectedDetailPackage.telefonoDestinatario}</span></div>
               <div><strong className="text-slate-400">Dirección:</strong> <span className="text-slate-300">{selectedDetailPackage.direccion}</span></div>
               <div><strong className="text-slate-400">Zona:</strong> <span className="text-slate-300">{selectedDetailPackage.zona}</span></div>
+              <div><strong className="text-slate-400">Coordenadas:</strong> <span className="text-slate-300 font-mono">{selectedDetailPackage.lat.toFixed(5)}, {selectedDetailPackage.lng.toFixed(5)}</span></div>
+              {(selectedDetailPackage.referencias || selectedDetailPackage.notas) && (
+                <div><strong className="text-slate-400">Referencias:</strong> <span className="text-slate-300">{selectedDetailPackage.referencias || selectedDetailPackage.notas}</span></div>
+              )}
               <div><strong className="text-slate-400">Chofer:</strong> <span className="text-blue-400 font-semibold">{selectedDetailPackage.repartidor?.nombre || 'Sin chofer'}</span></div>
             </div>
 

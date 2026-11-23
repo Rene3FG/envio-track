@@ -39,6 +39,7 @@ export interface PackageRecord {
   actualizadoEn: string;
   eta: string;
   progreso: number;
+  referencias?: string;
   notas?: string;
   eventos: PackageEvent[];
 }
