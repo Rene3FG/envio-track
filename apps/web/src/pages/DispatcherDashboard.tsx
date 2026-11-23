@@ -34,34 +34,10 @@ const MOCK_DRIVERS_LIST: DriverItem[] = [
   { id: 'drv-david', nombre: 'David Morales', unidad: 'Van Transit #04', tipo: 'VAN', telefono: '+52 951 332 1100', activo: false, paquetesAsignados: 0, capacidadMaxima: 18, bateria: 0, zona: 'En Descanso' },
 ];
 
-export type MapThemeKey = 'calles' | 'satelite' | 'osm' | 'dark';
-
-export const MAP_THEMES: Record<MapThemeKey, { name: string; url: string; attribution: string; maxZoom: number }> = {
-  calles: {
-    name: 'Calles a Color (Estilo Google Maps)',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri &mdash; Street Map',
-    maxZoom: 19
-  },
-  satelite: {
-    name: 'Satélite HD',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri World Imagery',
-    maxZoom: 18
-  },
-  osm: {
-    name: 'OpenStreetMap',
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap',
-    maxZoom: 19
-  },
-  dark: {
-    name: 'Modo Gris / Nocturno',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri Dark Canvas',
-    maxZoom: 18
-  }
-};
+const SATELLITE_TILE_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const SATELLITE_LABELS_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
 
 export interface ActiveVehicle {
   id: string;
@@ -424,17 +400,14 @@ export const DispatcherDashboard: React.FC = () => {
   const [trackingSearchInput, setTrackingSearchInput] = useState('ET-9482');
   const [activeTrackingPackage, setActiveTrackingPackage] = useState<PackageRecord | null>(INITIAL_PACKAGES[0]);
 
-  // Referencias a Leaflet para el tab B. Mapa & Radar
+  // Referencias a Leaflet para la pestaña de Mapa
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const vehiclesLayerRef = useRef<L.LayerGroup | null>(null);
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
-  const currentTileLayerRef = useRef<L.TileLayer | null>(null);
-  const currentRefLayerRef = useRef<L.TileLayer | null>(null);
 
   // Estados de Configuración del Mapa
-  const [mapTheme, setMapTheme] = useState<MapThemeKey>('calles'); // Calles a Color por defecto
   const [showVehicles, setShowVehicles] = useState<boolean>(true);
   const [showPackages, setShowPackages] = useState<boolean>(true);
   const [mapReady, setMapReady] = useState(0);
@@ -445,8 +418,6 @@ export const DispatcherDashboard: React.FC = () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
-        currentTileLayerRef.current = null;
-        currentRefLayerRef.current = null;
       }
       return;
     }
@@ -464,13 +435,16 @@ export const DispatcherDashboard: React.FC = () => {
         zoomControl: false,
       });
 
-      // Cargar capa inicial (Calles con color estilo Google Maps)
-      const theme = MAP_THEMES[mapTheme];
-      const tileLayer = L.tileLayer(theme.url, {
-        attribution: theme.attribution,
-        maxZoom: theme.maxZoom,
+      // Vista Satélite HD con etiquetas de lugares y límites
+      L.tileLayer(SATELLITE_TILE_URL, {
+        attribution: '&copy; Esri World Imagery',
+        maxZoom: 18,
       }).addTo(map);
-      currentTileLayerRef.current = tileLayer;
+
+      L.tileLayer(SATELLITE_LABELS_URL, {
+        attribution: '',
+        maxZoom: 18,
+      }).addTo(map);
 
       L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -492,42 +466,6 @@ export const DispatcherDashboard: React.FC = () => {
       clearTimeout(timer);
     };
   }, [mainNavTab]);
-
-  // Cambiar tema de mapa dinámicamente sin recargar la página
-  useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    const map = mapInstanceRef.current;
-
-    if (currentTileLayerRef.current) {
-      map.removeLayer(currentTileLayerRef.current);
-      currentTileLayerRef.current = null;
-    }
-    if (currentRefLayerRef.current) {
-      map.removeLayer(currentRefLayerRef.current);
-      currentRefLayerRef.current = null;
-    }
-
-    const theme = MAP_THEMES[mapTheme];
-    const newTile = L.tileLayer(theme.url, {
-      attribution: theme.attribution,
-      maxZoom: theme.maxZoom,
-    }).addTo(map);
-    currentTileLayerRef.current = newTile;
-
-    if (mapTheme === 'dark') {
-      const refLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '',
-        maxZoom: 18,
-      }).addTo(map);
-      currentRefLayerRef.current = refLayer;
-    } else if (mapTheme === 'satelite') {
-      const refLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '',
-        maxZoom: 18,
-      }).addTo(map);
-      currentRefLayerRef.current = refLayer;
-    }
-  }, [mapTheme]);
 
   // Dibujar marcadores de Camiones/Camionetas y Paradas de Paquetes
   useEffect(() => {
@@ -896,7 +834,7 @@ export const DispatcherDashboard: React.FC = () => {
               </span>
             </div>
             <div className="text-[11px] text-slate-400 hidden sm:block">
-              Consola Web de Despacho & Monitoreo Logístico • Sector Oaxaca Valles Centrales
+              Despacho y envíos • Oaxaca
             </div>
           </div>
         </div>
@@ -1379,48 +1317,6 @@ export const DispatcherDashboard: React.FC = () => {
               {/* Controles Flotantes Superiores en el Mapa */}
               <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2 bg-[#0B111E]/95 backdrop-blur-md p-2 rounded-2xl border border-slate-800 shadow-2xl text-xs font-mono max-w-[calc(100%-2rem)]">
                 
-                {/* Selector de Estilo de Mapa */}
-                <div className="flex items-center gap-1 bg-[#070B14] p-1 rounded-xl border border-slate-800">
-                  <button
-                    onClick={() => setMapTheme('calles')}
-                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 ${
-                      mapTheme === 'calles' ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold' : 'text-slate-400 hover:text-white'
-                    }`}
-                    title="Calles a Color (Estilo Google Maps)"
-                  >
-                    <span>🗺️ Calles a Color</span>
-                  </button>
-                  <button
-                    onClick={() => setMapTheme('satelite')}
-                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 ${
-                      mapTheme === 'satelite' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-                    }`}
-                    title="Satélite Fotográfico Real HD"
-                  >
-                    <span>🛰️ Satélite HD</span>
-                  </button>
-                  <button
-                    onClick={() => setMapTheme('osm')}
-                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 ${
-                      mapTheme === 'osm' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-                    }`}
-                    title="OpenStreetMap Estándar"
-                  >
-                    <span>🌍 OpenStreet</span>
-                  </button>
-                  <button
-                    onClick={() => setMapTheme('dark')}
-                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 ${
-                      mapTheme === 'dark' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-400 hover:text-white'
-                    }`}
-                    title="Modo Nocturno / Gris"
-                  >
-                    <span>🌙 Modo Gris</span>
-                  </button>
-                </div>
-
-                <div className="h-5 w-[1px] bg-slate-800 hidden md:block"></div>
-
                 {/* Toggles de Camiones / Flota y Paradas */}
                 <div className="flex items-center gap-1 bg-[#070B14] p-1 rounded-xl border border-slate-800">
                   <button

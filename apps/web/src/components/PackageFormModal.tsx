@@ -129,10 +129,18 @@ export const PackageFormModal: React.FC<PackageFormModalProps> = ({
       });
 
       L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         {
-          attribution: '&copy; Esri Street Map',
-          maxZoom: 19,
+          attribution: '&copy; Esri World Imagery',
+          maxZoom: 18,
+        }
+      ).addTo(map);
+
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        {
+          attribution: '',
+          maxZoom: 18,
         }
       ).addTo(map);
 
@@ -410,15 +418,15 @@ export const PackageFormModal: React.FC<PackageFormModalProps> = ({
 
             {/* Columna Derecha: Selector de Ubicación en Mapa de Oaxaca */}
             <div className="lg:col-span-6 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-slate-300 font-bold flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Ubicación de Entrega (Haz clic o arrastra el pin)</span>
+                  <span>Ubicación de Entrega</span>
                 </span>
                 <button
                   type="button"
                   onClick={handleCenterOnPin}
-                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] flex items-center gap-1 transition"
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] flex items-center gap-1 whitespace-nowrap shrink-0 transition"
                   title="Centrar mapa en el pin actual"
                 >
                   <Crosshair className="w-3 h-3 text-blue-400" />
