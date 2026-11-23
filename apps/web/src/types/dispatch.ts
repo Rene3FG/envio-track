@@ -12,6 +12,7 @@ export interface PackageEvent {
 export interface DriverItem {
   id: string;
   nombre: string;
+  email: string;
   unidad: string;
   tipo: 'EV' | 'VAN' | 'MOTO' | 'CAMION';
   telefono: string;

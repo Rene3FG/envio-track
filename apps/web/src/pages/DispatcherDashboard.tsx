@@ -4,12 +4,15 @@ import { apiClient } from '../api/client';
 import L from 'leaflet';
 import { PackageRecord, DriverItem } from '../types/dispatch';
 import { PackageFormModal, PackageFormValues } from '../components/PackageFormModal';
+import { DriverFormModal, DriverFormValues } from '../components/DriverFormModal';
 import {
   Truck,
   Package,
   AlertTriangle,
   Plus,
   Pencil,
+  UserPlus,
+  Power,
   Search,
   LogOut,
   X,
@@ -28,10 +31,10 @@ import {
 // Datos Iniciales de Operación Logística (Oaxaca)
 // ==========================================
 const MOCK_DRIVERS_LIST: DriverItem[] = [
-  { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', unidad: 'Van Eléctrica #01', tipo: 'EV', telefono: '+52 951 120 4411', activo: true, paquetesAsignados: 3, capacidadMaxima: 15, bateria: 94, zona: 'Oaxaca Centro / Jalatlaco' },
-  { id: 'drv-donato', nombre: 'Donato Aquino', unidad: 'Motocicleta Ágil #03', tipo: 'MOTO', telefono: '+52 951 443 8822', activo: true, paquetesAsignados: 2, capacidadMaxima: 5, bateria: 88, zona: 'Colonia Reforma / San Felipe' },
-  { id: 'drv-guadalupe', nombre: 'Guadalupe Mariscal', unidad: 'Camioneta Isuzu #02', tipo: 'CAMION', telefono: '+52 951 556 9933', activo: true, paquetesAsignados: 1, capacidadMaxima: 30, bateria: 78, zona: 'Xoxocotlán / Candiani' },
-  { id: 'drv-david', nombre: 'David Morales', unidad: 'Van Transit #04', tipo: 'VAN', telefono: '+52 951 332 1100', activo: false, paquetesAsignados: 0, capacidadMaxima: 18, bateria: 0, zona: 'En Descanso' },
+  { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', email: 'xochitl@enviotrack.com', unidad: 'Van Eléctrica #01', tipo: 'EV', telefono: '+52 951 120 4411', activo: true, paquetesAsignados: 3, capacidadMaxima: 15, bateria: 94, zona: 'Oaxaca Centro / Jalatlaco' },
+  { id: 'drv-donato', nombre: 'Donato Aquino', email: 'donato@enviotrack.com', unidad: 'Motocicleta Ágil #03', tipo: 'MOTO', telefono: '+52 951 443 8822', activo: true, paquetesAsignados: 2, capacidadMaxima: 5, bateria: 88, zona: 'Colonia Reforma / San Felipe' },
+  { id: 'drv-guadalupe', nombre: 'Guadalupe Mariscal', email: 'guadalupe@enviotrack.com', unidad: 'Camioneta Isuzu #02', tipo: 'CAMION', telefono: '+52 951 556 9933', activo: true, paquetesAsignados: 1, capacidadMaxima: 30, bateria: 78, zona: 'Xoxocotlán / Candiani' },
+  { id: 'drv-david', nombre: 'David Morales', email: 'david@enviotrack.com', unidad: 'Van Transit #04', tipo: 'VAN', telefono: '+52 951 332 1100', activo: false, paquetesAsignados: 0, capacidadMaxima: 18, bateria: 0, zona: 'Oaxaca Centro' },
 ];
 
 const SATELLITE_TILE_URL =
@@ -282,7 +285,7 @@ export const DispatcherDashboard: React.FC = () => {
 
   // Estados principales
   const [packages, setPackages] = useState<PackageRecord[]>(INITIAL_PACKAGES);
-  const [drivers] = useState<DriverItem[]>(MOCK_DRIVERS_LIST);
+  const [drivers, setDrivers] = useState<DriverItem[]>(MOCK_DRIVERS_LIST);
   
   // Pestaña Principal Superior (Consola Web Despacho, Radar Táctico y Rastreo Público)
   const [mainNavTab, setMainNavTab] = useState<'admin' | 'mapa' | 'tracking'>('admin');
@@ -385,16 +388,195 @@ export const DispatcherDashboard: React.FC = () => {
     return () => window.removeEventListener('inspect-vehicle', handleInspect);
   }, []);
 
-  // Estados de Edición y Feedback
+  // Estados de Edición, Choferes y Feedback
   const [editingPackage, setEditingPackage] = useState<PackageRecord | null>(null);
-  const [feedbackBanner, setFeedbackBanner] = useState<string | null>(null);
+  const [driverSearchQuery, setDriverSearchQuery] = useState('');
+  const [driverStatusFilter, setDriverStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [isNewDriverModalOpen, setIsNewDriverModalOpen] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<DriverItem | null>(null);
+  const [feedbackBanner, setFeedbackBanner] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
 
-  const showFeedback = (message: string) => {
-    setFeedbackBanner(message);
+  const showFeedback = (message: string, tone: 'success' | 'error' = 'success') => {
+    setFeedbackBanner({ message, tone });
     setTimeout(() => {
-      setFeedbackBanner((current) => (current === message ? null : current));
-    }, 3500);
+      setFeedbackBanner((current) => (current?.message === message ? null : current));
+    }, 4000);
   };
+
+  // Paquetes activos que bloquean desactivar un chofer (ASIGNADO o EN_RUTA)
+  const getDriverBlockingPackages = (driverId: string) => {
+    return packages.filter(
+      (p) => p.repartidor?.id === driverId && (p.estado === 'ASIGNADO' || p.estado === 'EN_RUTA')
+    );
+  };
+
+  const buildVehicleSnapshotForDriver = (drv: DriverItem): ActiveVehicle => {
+    const existing = ACTIVE_FLEET_VEHICLES.find((v) => v.driverId === drv.id);
+    if (existing) {
+      return {
+        ...existing,
+        driverName: drv.nombre,
+        unit: drv.unidad,
+        zona: drv.zona,
+        capacidadMaxima: drv.capacidadMaxima,
+      };
+    }
+
+    return {
+      id: `veh-${drv.id}`,
+      driverId: drv.id,
+      driverName: drv.nombre,
+      unit: drv.unidad,
+      type: drv.tipo === 'MOTO' ? 'MOTO' : drv.tipo === 'CAMION' ? 'CAMION' : 'EV',
+      icon: drv.tipo === 'MOTO' ? '🏍️' : drv.tipo === 'CAMION' ? '🚚' : '🚐',
+      lat: 17.0603,
+      lng: -96.7256,
+      battery: drv.bateria ?? 100,
+      speed: '0 km/h',
+      heading: 'Base Oaxaca',
+      color: '#3B82F6',
+      zona: drv.zona,
+      capacidadMaxima: drv.capacidadMaxima,
+    };
+  };
+
+  // Alta de chofer
+  const handleCreateDriver = async (values: DriverFormValues) => {
+    let createdId = `drv-${Date.now()}`;
+
+    try {
+      const response = await apiClient.post<{ id?: string }>('/users', {
+        nombre: values.nombre,
+        email: values.email,
+        password: values.password,
+        rol: 'REPARTIDOR',
+      });
+      if (response.data?.id) {
+        createdId = response.data.id;
+      }
+    } catch {
+      // Respaldo local si la API no está disponible
+    }
+
+    const newDriver: DriverItem = {
+      id: createdId,
+      nombre: values.nombre,
+      email: values.email,
+      unidad: values.unidad,
+      tipo: values.tipo,
+      telefono: values.telefono,
+      activo: true,
+      paquetesAsignados: 0,
+      capacidadMaxima: values.capacidadMaxima,
+      bateria: 100,
+      zona: values.zona,
+    };
+
+    setDrivers((prev) => [newDriver, ...prev]);
+    setIsNewDriverModalOpen(false);
+    showFeedback(`Chofer ${values.nombre} registrado correctamente.`);
+  };
+
+  // Editar chofer
+  const handleUpdateDriver = async (values: DriverFormValues) => {
+    if (!editingDriver) return;
+    const targetId = editingDriver.id;
+
+    try {
+      await apiClient.patch(`/users/${targetId}`, {
+        nombre: values.nombre,
+        email: values.email,
+        ...(values.password ? { password: values.password } : {}),
+      });
+    } catch {
+      // Respaldo local si la API no está disponible
+    }
+
+    setDrivers((prev) =>
+      prev.map((d) =>
+        d.id === targetId
+          ? {
+              ...d,
+              nombre: values.nombre,
+              email: values.email,
+              telefono: values.telefono,
+              unidad: values.unidad,
+              tipo: values.tipo,
+              capacidadMaxima: values.capacidadMaxima,
+              zona: values.zona,
+            }
+          : d
+      )
+    );
+
+    // Mantener sincronizados los datos del chofer en sus paquetes
+    setPackages((prev) =>
+      prev.map((pkg) =>
+        pkg.repartidor?.id === targetId
+          ? {
+              ...pkg,
+              repartidor: {
+                id: targetId,
+                nombre: values.nombre,
+                unidad: values.unidad,
+              },
+            }
+          : pkg
+      )
+    );
+
+    setEditingDriver(null);
+    showFeedback(`Datos de ${values.nombre} actualizados.`);
+  };
+
+  // Iniciar o terminar turno del chofer (bloquea si tiene paquetes en ASIGNADO o EN_RUTA)
+  const handleToggleDriverActive = async (drv: DriverItem) => {
+    if (drv.activo) {
+      const blocking = getDriverBlockingPackages(drv.id);
+      if (blocking.length > 0) {
+        showFeedback(
+          `No se puede terminar el turno de ${drv.nombre}: tiene ${blocking.length} paquete(s) activo(s) (ASIGNADO o EN_RUTA). Reasígnalos primero.`,
+          'error'
+        );
+        return;
+      }
+    }
+
+    const nextActive = !drv.activo;
+
+    try {
+      await apiClient.patch(`/users/${drv.id}`, { activo: nextActive });
+    } catch {
+      // Respaldo local si la API no está disponible
+    }
+
+    setDrivers((prev) =>
+      prev.map((d) => (d.id === drv.id ? { ...d, activo: nextActive } : d))
+    );
+
+    showFeedback(
+      nextActive
+        ? `${drv.nombre} inició turno y ya puede recibir paquetes.`
+        : `${drv.nombre} terminó su turno.`
+    );
+  };
+
+  const filteredDrivers = drivers.filter((drv) => {
+    const q = driverSearchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      drv.nombre.toLowerCase().includes(q) ||
+      drv.email.toLowerCase().includes(q) ||
+      drv.unidad.toLowerCase().includes(q) ||
+      drv.zona.toLowerCase().includes(q);
+
+    const matchesStatus =
+      driverStatusFilter === 'ALL' ||
+      (driverStatusFilter === 'ACTIVE' && drv.activo) ||
+      (driverStatusFilter === 'INACTIVE' && !drv.activo);
+
+    return matchesSearch && matchesStatus;
+  });
 
   // Estados de Rastreo Público
   const [trackingSearchInput, setTrackingSearchInput] = useState('ET-9482');
@@ -1205,76 +1387,182 @@ export const DispatcherDashboard: React.FC = () => {
               </div>
             )}
 
-            {/* SUB-VISTA: GESTIÓN DE CHOFERES (Con Monitoreo de Capacidad en Vivo) */}
+            {/* SUB-VISTA: GESTIÓN DE CHOFERES */}
             {adminSubTab === 'choferes' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {drivers.map((drv) => {
-                  const load = getDriverLoad(drv.id, drv.capacidadMaxima);
-                  const barColor = load.isFull ? '#EF4444' : load.isNearFull ? '#F59E0B' : '#10B981';
-                  const activeVeh = ACTIVE_FLEET_VEHICLES.find((v) => v.driverId === drv.id);
+              <div className="flex flex-col gap-4">
+                
+                {/* Barra de búsqueda, filtro y alta de chofer */}
+                <div className="bg-[#0B111E] rounded-2xl border border-slate-800 p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="relative flex-1 min-w-[240px]">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={driverSearchQuery}
+                      onChange={(e) => setDriverSearchQuery(e.target.value)}
+                      placeholder="Buscar por nombre, correo, unidad o zona..."
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#070B14] border border-slate-700/80 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition font-mono"
+                    />
+                  </div>
 
-                  return (
-                    <div key={drv.id} className="bg-[#0B111E] rounded-2xl p-5 border border-slate-800 shadow-lg flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold text-lg">
-                            {drv.tipo === 'MOTO' ? '🏍️' : drv.tipo === 'CAMION' ? '🚚' : '🚐'}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {drv.bateria !== undefined && drv.bateria > 0 && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-emerald-400 border border-slate-700">
-                                ⚡ {drv.bateria}%
-                              </span>
-                            )}
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                              drv.activo ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'
-                            }`}>
-                              {drv.activo ? 'ACTIVO' : 'DESCANSO'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <h4 className="font-bold text-white text-base mt-3">{drv.nombre}</h4>
-                        <p className="text-xs text-slate-400 font-mono mt-0.5">{drv.unidad}</p>
-                        <p className="text-xs text-slate-500 mt-2">{drv.zona}</p>
-
-                        {/* Medidor de Capacidad y Ocupación */}
-                        <div className="mt-4 p-3 bg-[#070B14] rounded-xl border border-slate-800/80 font-mono text-xs">
-                          <div className="flex justify-between items-center text-[11px]">
-                            <span className="text-slate-400">Capacidad Carga:</span>
-                            <span className="font-bold text-white">{load.current} / {drv.capacidadMaxima}</span>
-                          </div>
-                          <div className="w-full bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
-                            <div className="h-full rounded-full transition-all" style={{ width: `${load.percentage}%`, backgroundColor: barColor }} />
-                          </div>
-                          <div className="flex justify-between items-center text-[10px] mt-1.5">
-                            <span className="text-slate-500">{load.percentage}% Ocupado</span>
-                            <span style={{ color: barColor }} className="font-bold">
-                              {load.isFull ? '⛔ LLENO' : `🟢 ${load.available} libres`}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col gap-2 font-mono">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-400">Tel:</span>
-                          <span className="text-blue-400 font-semibold">{drv.telefono}</span>
-                        </div>
-
-                        {activeVeh && (
-                          <button
-                            onClick={() => setSelectedVehicleForCapacity(activeVeh)}
-                            className="w-full py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-white border border-blue-500/30 text-xs font-bold transition flex items-center justify-center gap-1.5"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Inspeccionar Capacidad</span>
-                          </button>
-                        )}
-                      </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1 bg-[#070B14] p-1 rounded-xl border border-slate-800 text-xs font-mono">
+                      <button
+                        onClick={() => setDriverStatusFilter('ALL')}
+                        className={`px-3 py-1.5 rounded-lg transition ${
+                          driverStatusFilter === 'ALL' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Todos ({drivers.length})
+                      </button>
+                      <button
+                        onClick={() => setDriverStatusFilter('ACTIVE')}
+                        className={`px-3 py-1.5 rounded-lg transition ${
+                          driverStatusFilter === 'ACTIVE' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Activos ({drivers.filter((d) => d.activo).length})
+                      </button>
+                      <button
+                        onClick={() => setDriverStatusFilter('INACTIVE')}
+                        className={`px-3 py-1.5 rounded-lg transition ${
+                          driverStatusFilter === 'INACTIVE' ? 'bg-slate-700 text-white font-bold' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Inactivos ({drivers.filter((d) => !d.activo).length})
+                      </button>
                     </div>
-                  );
-                })}
+
+                    <button
+                      onClick={() => setIsNewDriverModalOpen(true)}
+                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-blue-600/20 transition"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Nuevo Chofer</span>
+                    </button>
+                  </div>
+                </div>
+
+                {filteredDrivers.length === 0 ? (
+                  <div className="bg-[#0B111E] rounded-2xl border border-slate-800 p-8 text-center text-xs font-mono text-slate-400">
+                    No se encontraron choferes con los filtros seleccionados.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {filteredDrivers.map((drv) => {
+                      const load = getDriverLoad(drv.id, drv.capacidadMaxima);
+                      const blockingPackages = getDriverBlockingPackages(drv.id);
+                      const barColor = load.isFull ? '#EF4444' : load.isNearFull ? '#F59E0B' : '#10B981';
+
+                      return (
+                        <div
+                          key={drv.id}
+                          className={`bg-[#0B111E] rounded-2xl p-5 border shadow-lg flex flex-col justify-between transition ${
+                            drv.activo ? 'border-slate-800' : 'border-slate-800/60 opacity-80'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-start justify-between">
+                              <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold text-lg">
+                                {drv.tipo === 'MOTO' ? '🏍️' : drv.tipo === 'CAMION' ? '🚚' : '🚐'}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                {drv.activo && drv.bateria !== undefined && drv.bateria > 0 && (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-emerald-400 border border-slate-700">
+                                    ⚡ {drv.bateria}%
+                                  </span>
+                                )}
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                                    drv.activo ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'
+                                  }`}
+                                >
+                                  {drv.activo ? 'ACTIVO' : 'INACTIVO'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <h4 className="font-bold text-white text-base mt-3">{drv.nombre}</h4>
+                            <p className="text-[11px] text-slate-400 font-mono truncate">{drv.email}</p>
+                            <p className="text-xs text-slate-300 font-mono mt-1">{drv.unidad}</p>
+                            <p className="text-xs text-slate-500 mt-1">{drv.zona}</p>
+
+                            {/* Medidor de Capacidad y Ocupación */}
+                            <div className="mt-4 p-3 bg-[#070B14] rounded-xl border border-slate-800/80 font-mono text-xs">
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="text-slate-400">Capacidad Carga:</span>
+                                <span className="font-bold text-white">{load.current} / {drv.capacidadMaxima}</span>
+                              </div>
+                              <div className="w-full bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
+                                <div className="h-full rounded-full transition-all" style={{ width: `${load.percentage}%`, backgroundColor: barColor }} />
+                              </div>
+                              <div className="flex justify-between items-center text-[10px] mt-1.5">
+                                <span className="text-slate-500">{load.percentage}% Ocupado</span>
+                                <span style={{ color: barColor }} className="font-bold">
+                                  {load.isFull ? '⛔ LLENO' : `🟢 ${load.available} libres`}
+                                </span>
+                              </div>
+                            </div>
+
+                            {drv.activo && blockingPackages.length > 0 && (
+                              <div className="mt-2 text-[10px] font-mono text-amber-400/90 flex items-center gap-1">
+                                <Package className="w-3 h-3 shrink-0" />
+                                <span>{blockingPackages.length} paquete(s) en curso</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col gap-2 font-mono">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-400">Tel:</span>
+                              <span className="text-blue-400 font-semibold">{drv.telefono}</span>
+                            </div>
+
+                            {drv.activo && (
+                              <button
+                                onClick={() => setSelectedVehicleForCapacity(buildVehicleSnapshotForDriver(drv))}
+                                className="w-full py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-white border border-blue-500/30 text-xs font-bold transition flex items-center justify-center gap-1.5"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Inspeccionar Capacidad</span>
+                              </button>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                onClick={() => setEditingDriver(drv)}
+                                className="py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-semibold transition flex items-center justify-center gap-1"
+                              >
+                                <Pencil className="w-3 h-3 text-amber-400" />
+                                <span>Editar</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleToggleDriverActive(drv)}
+                                title={
+                                  drv.activo && blockingPackages.length > 0
+                                    ? `Tiene ${blockingPackages.length} paquete(s) activo(s): reasígnalos antes de terminar`
+                                    : drv.activo
+                                      ? 'Terminar turno del chofer'
+                                      : 'Iniciar turno del chofer'
+                                }
+                                className={`py-1.5 rounded-xl border text-[11px] font-semibold transition flex items-center justify-center gap-1 ${
+                                  drv.activo
+                                    ? blockingPackages.length > 0
+                                      ? 'bg-rose-950/30 border-rose-500/30 text-rose-300/70 hover:bg-rose-950/50'
+                                      : 'bg-rose-950/50 hover:bg-rose-900/60 border-rose-500/40 text-rose-300'
+                                    : 'bg-emerald-950/50 hover:bg-emerald-900/60 border-emerald-500/40 text-emerald-300'
+                                }`}
+                              >
+                                <Power className="w-3 h-3" />
+                                <span>{drv.activo ? 'Terminar' : 'Iniciar'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1717,11 +2005,41 @@ export const DispatcherDashboard: React.FC = () => {
         />
       )}
 
-      {/* Notificación flotante de confirmación */}
+      {/* Modales de alta y edición de choferes */}
+      {isNewDriverModalOpen && (
+        <DriverFormModal
+          mode="create"
+          existingEmails={drivers.map((d) => d.email)}
+          onClose={() => setIsNewDriverModalOpen(false)}
+          onSubmit={handleCreateDriver}
+        />
+      )}
+
+      {editingDriver && (
+        <DriverFormModal
+          mode="edit"
+          initialDriver={editingDriver}
+          existingEmails={drivers.map((d) => d.email)}
+          onClose={() => setEditingDriver(null)}
+          onSubmit={handleUpdateDriver}
+        />
+      )}
+
+      {/* Notificación flotante de confirmación o alerta */}
       {feedbackBanner && (
-        <div className="fixed bottom-5 right-5 z-50 px-4 py-3 rounded-2xl bg-[#0B111E] border border-emerald-500/50 text-emerald-300 text-xs font-mono shadow-2xl flex items-center gap-2.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-          <span>{feedbackBanner}</span>
+        <div
+          className={`fixed bottom-5 right-5 z-50 max-w-md px-4 py-3 rounded-2xl bg-[#0B111E] border text-xs font-mono shadow-2xl flex items-center gap-2.5 ${
+            feedbackBanner.tone === 'error'
+              ? 'border-rose-500/60 text-rose-300'
+              : 'border-emerald-500/50 text-emerald-300'
+          }`}
+        >
+          <span
+            className={`w-2 h-2 rounded-full shrink-0 ${
+              feedbackBanner.tone === 'error' ? 'bg-rose-400' : 'bg-emerald-400'
+            }`}
+          />
+          <span>{feedbackBanner.message}</span>
         </div>
       )}
 
