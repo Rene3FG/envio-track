@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import L from 'leaflet';
+import { ApiErrorResponse } from '../types/auth';
 import { PackageRecord, DriverItem } from '../types/dispatch';
 import {
   Truck,
@@ -301,6 +304,7 @@ const INITIAL_PACKAGES: PackageRecord[] = [
 
 export const DispatcherDashboard: React.FC = () => {
   const { logout } = useAuth();
+  const navigate = useNavigate();
 
   // Estados principales
   const [packages, setPackages] = useState<PackageRecord[]>(INITIAL_PACKAGES);
@@ -310,7 +314,7 @@ export const DispatcherDashboard: React.FC = () => {
   const [mainNavTab, setMainNavTab] = useState<'admin' | 'mapa' | 'tracking'>('admin');
   
   // Subpestañas dentro de A. Web Despacho
-  const [adminSubTab, setAdminSubTab] = useState<'tabla' | 'choferes' | 'stats'>('tabla');
+  const [adminSubTab, setAdminSubTab] = useState<'tabla' | 'choferes'>('tabla');
 
   // Filtros de la tabla
   const [searchQuery, setSearchQuery] = useState('');
@@ -411,13 +415,12 @@ export const DispatcherDashboard: React.FC = () => {
   const [formRecipient, setFormRecipient] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formAddress, setFormAddress] = useState('');
-  const [formZone, setFormZone] = useState('Oaxaca Centro');
   const [formLat, setFormLat] = useState(17.0603);
   const [formLng, setFormLng] = useState(-96.7256);
-  const [formDriverId, setFormDriverId] = useState('drv-xochitl');
   const [formUrgent, setFormUrgent] = useState(false);
   const [formNotes, setFormNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createPackageError, setCreatePackageError] = useState<string | null>(null);
 
   // Estados de Rastreo Público
   const [trackingSearchInput, setTrackingSearchInput] = useState('ET-9482');
@@ -698,49 +701,71 @@ export const DispatcherDashboard: React.FC = () => {
   const handleCreatePackage = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-
-    const driverObj = drivers.find((d) => d.id === formDriverId);
-    const newGuia = `ET-${Math.floor(100000 + Math.random() * 900000)}`;
-
-    const newPkg: PackageRecord = {
-      id: `pkg-${Date.now()}`,
-      guia: newGuia,
-      destinatario: formRecipient.trim(),
-      telefonoDestinatario: formPhone.trim(),
-      direccion: formAddress.trim(),
-      zona: formZone,
-      lat: formLat,
-      lng: formLng,
-      urgente: formUrgent,
-      estado: formDriverId ? 'ASIGNADO' : 'REGISTRADO',
-      repartidor: driverObj ? { id: driverObj.id, nombre: driverObj.nombre, unidad: driverObj.unidad } : null,
-      requiereRevision: false,
-      creadoEn: new Date().toISOString(),
-      actualizadoEn: new Date().toISOString(),
-      eta: 'En preparación',
-      progreso: 25,
-      notas: formNotes.trim(),
-      eventos: [
-        { tipo: 'CREADO', ocurridoEn: new Date().toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }), detalle: 'Paquete recibido en centro logístico' }
-      ]
-    };
+    setCreatePackageError(null);
 
     try {
-      await apiClient.post('/packages', {
-        destinatario: newPkg.destinatario,
-        telefonoDestinatario: newPkg.telefonoDestinatario,
-        direccion: newPkg.direccion,
-        lat: newPkg.lat,
-        lng: newPkg.lng,
-        urgente: newPkg.urgente,
+      const { data: created } = await apiClient.post<{
+        id: string;
+        guia: string;
+        destinatario: string;
+        telefonoDestinatario: string | null;
+        direccion: string;
+        lat: number;
+        lng: number;
+        urgente: boolean;
+        estado: PackageRecord['estado'];
+        repartidor: { id: string; nombre: string } | null;
+        creadoEn: string;
+        actualizadoEn: string;
+      }>('/packages', {
+        destinatario: formRecipient.trim(),
+        telefonoDestinatario: formPhone.trim(),
+        direccion: formAddress.trim(),
+        referencias: formNotes.trim() || undefined,
+        lat: formLat,
+        lng: formLng,
+        urgente: formUrgent,
       });
-    } catch {
-      // Estado local si la API está offline
-    }
 
-    setPackages((prev) => [newPkg, ...prev]);
-    setIsSubmitting(false);
-    setIsNewPackageModalOpen(false);
+      const newPkg: PackageRecord = {
+        id: created.id,
+        guia: created.guia,
+        destinatario: created.destinatario,
+        telefonoDestinatario: created.telefonoDestinatario ?? '',
+        direccion: created.direccion,
+        zona: '',
+        lat: created.lat,
+        lng: created.lng,
+        urgente: created.urgente,
+        estado: created.estado,
+        repartidor: created.repartidor,
+        requiereRevision: false,
+        creadoEn: created.creadoEn,
+        actualizadoEn: created.actualizadoEn,
+        eta: 'En preparación',
+        progreso: 0,
+        notas: formNotes.trim(),
+        eventos: [
+          {
+            tipo: 'CREADO',
+            ocurridoEn: created.creadoEn,
+            detalle: 'Paquete recibido en centro logístico',
+          },
+        ],
+      };
+
+      setPackages((prev) => [newPkg, ...prev]);
+      setIsNewPackageModalOpen(false);
+    } catch (requestError: unknown) {
+      const message = axios.isAxiosError<ApiErrorResponse>(requestError)
+        ? requestError.response?.data.error.message ?? 'No se pudo conectar con el servidor.'
+        : requestError instanceof Error
+          ? requestError.message
+          : 'No se pudo crear el paquete. Inténtalo de nuevo.';
+      setCreatePackageError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Manejar reasignación de chofer
@@ -900,12 +925,8 @@ export const DispatcherDashboard: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={() => setAdminSubTab('stats')}
-                  className={`px-4 py-2 rounded-lg transition flex items-center gap-2 ${
-                    adminSubTab === 'stats'
-                      ? 'bg-blue-600 text-white shadow'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
+                  onClick={() => navigate('/stats')}
+                  className="px-4 py-2 rounded-lg transition flex items-center gap-2 text-slate-400 hover:text-white"
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span>Dashboard /stats</span>
@@ -1225,29 +1246,6 @@ export const DispatcherDashboard: React.FC = () => {
                     </div>
                   );
                 })}
-              </div>
-            )}
-
-            {/* SUB-VISTA: DASHBOARD STATS */}
-            {adminSubTab === 'stats' && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-[#0B111E] p-6 rounded-2xl border border-slate-800 shadow">
-                  <div className="text-xs font-mono text-slate-400 uppercase">Cumplimiento SLA Hoy</div>
-                  <div className="text-3xl font-black text-emerald-400 mt-2">99.1%</div>
-                  <div className="text-xs text-slate-400 mt-1">+2.3% vs turno previo</div>
-                </div>
-
-                <div className="bg-[#0B111E] p-6 rounded-2xl border border-slate-800 shadow">
-                  <div className="text-xs font-mono text-slate-400 uppercase">Eficiencia de Recorrido</div>
-                  <div className="text-3xl font-black text-blue-400 mt-2">98.4%</div>
-                  <div className="text-xs text-slate-400 mt-1">Tiempo Real • 0 cruces</div>
-                </div>
-
-                <div className="bg-[#0B111E] p-6 rounded-2xl border border-slate-800 shadow">
-                  <div className="text-xs font-mono text-slate-400 uppercase">Entregas Completadas</div>
-                  <div className="text-3xl font-black text-white mt-2">142</div>
-                  <div className="text-xs text-slate-400 mt-1">De 160 guías activas</div>
-                </div>
               </div>
             )}
 
@@ -1702,6 +1700,11 @@ export const DispatcherDashboard: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreatePackage} className="p-6 space-y-4 text-xs font-mono">
+              {createPackageError && (
+                <p role="alert" className="rounded-xl border border-rose-800 bg-rose-950/40 p-3 text-rose-300">
+                  {createPackageError}
+                </p>
+              )}
               <div>
                 <label className="block text-slate-300 mb-1">Nombre Completo del Destinatario *</label>
                 <input
@@ -1714,28 +1717,16 @@ export const DispatcherDashboard: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 mb-1">Teléfono Móvil *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    placeholder="+52 951 516 4020"
-                    className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-300 mb-1">Zona / Cuadrante</label>
-                  <input
-                    type="text"
-                    value={formZone}
-                    onChange={(e) => setFormZone(e.target.value)}
-                    placeholder="Oaxaca Centro / Reforma"
-                    className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-slate-300 mb-1">Teléfono Móvil *</label>
+                <input
+                  type="tel"
+                  required
+                  value={formPhone}
+                  onChange={(e) => setFormPhone(e.target.value)}
+                  placeholder="+52 951 516 4020"
+                  className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                />
               </div>
 
               <div>
@@ -1773,37 +1764,9 @@ export const DispatcherDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-300 mb-1">Chofer Asignado</label>
-                <select
-                  value={formDriverId}
-                  onChange={(e) => setFormDriverId(e.target.value)}
-                  className="w-full bg-[#070B14] border border-slate-700 rounded-xl px-3 py-2 text-white cursor-pointer"
-                >
-                  {drivers.map((d) => {
-                    const dLoad = getDriverLoad(d.id, d.capacidadMaxima);
-                    return (
-                      <option key={d.id} value={d.id} className="bg-[#0B111E]">
-                        {d.nombre} — {d.unidad} [{dLoad.current}/{d.capacidadMaxima} cargados • {dLoad.isFull ? '⛔ LLENO' : `🟢 ${dLoad.available} libres`}]
-                      </option>
-                    );
-                  })}
-                </select>
-                {(() => {
-                  const targetDrv = drivers.find((d) => d.id === formDriverId);
-                  if (!targetDrv) return null;
-                  const dLoad = getDriverLoad(targetDrv.id, targetDrv.capacidadMaxima);
-                  if (dLoad.isFull) {
-                    return (
-                      <p className="text-[11px] text-amber-400 mt-1.5 flex items-center gap-1 font-mono">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span>Aviso: {targetDrv.nombre} ya tiene su capacidad completa ({dLoad.current}/{targetDrv.capacidadMaxima}).</span>
-                      </p>
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
+              <p className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-[11px] text-slate-400">
+                El paquete se registra sin asignar. La asignación al repartidor se realiza desde el centro de despacho.
+              </p>
 
               <div>
                 <label className="block text-slate-300 mb-1">Notas / Referencias de Entrega</label>

@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: enviotrack-web
+    runtime: docker
+    plan: free
+    dockerContext: .
+    dockerfilePath: ./apps/web/Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: API_UPSTREAM
+        sync: false

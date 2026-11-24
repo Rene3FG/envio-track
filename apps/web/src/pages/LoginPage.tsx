@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
-import { LoginResponse } from '../types/auth';
+import { ApiErrorResponse, LoginResponse } from '../types/auth';
 import {
   Key,
   Mail,
@@ -12,14 +13,12 @@ import {
   ArrowRight,
   ShieldCheck,
   Radio,
-  Compass,
   Search
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const [profile] = useState<'despacho' | 'ruta'>('despacho');
-  const [email, setEmail] = useState('admin@enviotrack.com');
-  const [password, setPassword] = useState('cambiar123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [trackingCode, setTrackingCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,20 +38,6 @@ export const LoginPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Autenticación modo demo/desarrollo
-  const authenticateAsDemo = (targetProfile: 'despacho' | 'ruta') => {
-    const demoUser = {
-      id: targetProfile === 'despacho' ? 'demo-admin-1' : 'demo-driver-1',
-      nombre: targetProfile === 'despacho' ? 'Administrador Despacho' : 'Xóchitl Ruiz (Unidad 01)',
-      email: targetProfile === 'despacho' ? 'admin@enviotrack.com' : 'xochitl@enviotrack.com',
-      rol: targetProfile === 'despacho' ? ('ADMIN' as const) : ('REPARTIDOR' as const),
-      activo: true,
-      creadoEn: new Date().toISOString(),
-    };
-    login('demo-jwt-token-alpha', 'demo-refresh-token-alpha', demoUser);
-    navigate('/despacho');
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -67,9 +52,12 @@ export const LoginPage: React.FC = () => {
       const { accessToken, refreshToken, user } = response.data;
       login(accessToken, refreshToken, user);
       navigate('/despacho');
-    } catch {
-      // Fallback para desarrollo sin backend activo
-      authenticateAsDemo(profile);
+    } catch (loginError: unknown) {
+      setError(
+        axios.isAxiosError<ApiErrorResponse>(loginError)
+          ? loginError.response?.data.error.message ?? 'No se pudo conectar con el servidor de acceso.'
+          : 'No se pudo iniciar sesión. Inténtalo de nuevo.',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +66,7 @@ export const LoginPage: React.FC = () => {
   const handleTrackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackingCode.trim()) return;
-    navigate(`/tracking?guia=${encodeURIComponent(trackingCode.trim().toUpperCase())}`);
+    navigate(`/tracking/${encodeURIComponent(trackingCode.trim().toUpperCase())}`);
   };
 
   return (
@@ -142,17 +130,6 @@ export const LoginPage: React.FC = () => {
             <Activity className="w-3.5 h-3.5 text-[#00F5A0]" />
             <span>Consola Central de Despacho & Recepción</span>
           </div>
-
-          {/* Botón de Acceso Rápido Directo */}
-          <button
-            type="button"
-            onClick={() => authenticateAsDemo(profile)}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#00F5A0] to-[#00D084] hover:from-[#50FFAF] hover:to-[#00F5A0] text-[#080E17] font-extrabold text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,245,160,0.35)] transition hover:scale-[1.01] active:scale-[0.99]"
-          >
-            <Compass className="w-4 h-4 stroke-[2.5]" />
-            <span>ACCEDER DIRECTO AL CENTRO DE MANDO</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
 
           {/* Alerta de Error */}
           {error && (
