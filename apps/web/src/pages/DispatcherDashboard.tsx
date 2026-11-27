@@ -1,10 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { apiClient } from '../api/client';
 import L from 'leaflet';
 import { PackageRecord, DriverItem } from '../types/dispatch';
 import { PackageFormModal, PackageFormValues } from '../components/PackageFormModal';
 import { DriverFormModal, DriverFormValues } from '../components/DriverFormModal';
+import {
+  ACTIVE_FLEET_VEHICLES,
+  ActiveVehicle,
+  INITIAL_PACKAGES,
+} from '../data/initialDispatchData';
+import {
+  usePackagesQuery,
+  useDriversQuery,
+  useCreatePackageMutation,
+  useUpdatePackageMutation,
+  useAssignPackageMutation,
+  useUnassignPackageMutation,
+  useReprogramPackageMutation,
+  useCreateDriverMutation,
+  useUpdateDriverMutation,
+  useToggleDriverActiveMutation,
+} from '../hooks/useDispatchData';
 import {
   Truck,
   Package,
@@ -27,265 +43,26 @@ import {
   Camera
 } from 'lucide-react';
 
-// ==========================================
-// Datos Iniciales de Operación Logística (Oaxaca)
-// ==========================================
-const MOCK_DRIVERS_LIST: DriverItem[] = [
-  { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', email: 'xochitl@enviotrack.com', unidad: 'Van Eléctrica #01', tipo: 'EV', telefono: '+52 951 120 4411', activo: true, paquetesAsignados: 3, capacidadMaxima: 15, bateria: 94, zona: 'Oaxaca Centro / Jalatlaco' },
-  { id: 'drv-donato', nombre: 'Donato Aquino', email: 'donato@enviotrack.com', unidad: 'Motocicleta Ágil #03', tipo: 'MOTO', telefono: '+52 951 443 8822', activo: true, paquetesAsignados: 2, capacidadMaxima: 5, bateria: 88, zona: 'Colonia Reforma / San Felipe' },
-  { id: 'drv-guadalupe', nombre: 'Guadalupe Mariscal', email: 'guadalupe@enviotrack.com', unidad: 'Camioneta Isuzu #02', tipo: 'CAMION', telefono: '+52 951 556 9933', activo: true, paquetesAsignados: 1, capacidadMaxima: 30, bateria: 78, zona: 'Xoxocotlán / Candiani' },
-  { id: 'drv-david', nombre: 'David Morales', email: 'david@enviotrack.com', unidad: 'Van Transit #04', tipo: 'VAN', telefono: '+52 951 332 1100', activo: false, paquetesAsignados: 0, capacidadMaxima: 18, bateria: 0, zona: 'Oaxaca Centro' },
-];
-
 const SATELLITE_TILE_URL =
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const SATELLITE_LABELS_URL =
   'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
 
-export interface ActiveVehicle {
-  id: string;
-  driverId: string;
-  driverName: string;
-  unit: string;
-  type: 'EV' | 'MOTO' | 'CAMION';
-  icon: string;
-  lat: number;
-  lng: number;
-  battery: number;
-  speed: string;
-  heading: string;
-  color: string;
-  zona: string;
-  capacidadMaxima: number;
-}
-
-export const ACTIVE_FLEET_VEHICLES: ActiveVehicle[] = [
-  {
-    id: 'veh-xochitl',
-    driverId: 'drv-xochitl',
-    driverName: 'Xóchitl Ruiz',
-    unit: 'Van Eléctrica #01',
-    type: 'EV',
-    icon: '🚐',
-    lat: 17.0635,
-    lng: -96.7210,
-    battery: 94,
-    speed: '36 km/h',
-    heading: 'NE Oaxaca Centro',
-    color: '#00F5A0',
-    zona: 'Oaxaca Centro / Jalatlaco',
-    capacidadMaxima: 15,
-  },
-  {
-    id: 'veh-donato',
-    driverId: 'drv-donato',
-    driverName: 'Donato Aquino',
-    unit: 'Moto Ágil #03',
-    type: 'MOTO',
-    icon: '🏍️',
-    lat: 17.0750,
-    lng: -96.7140,
-    battery: 88,
-    speed: '44 km/h',
-    heading: 'NW Reforma',
-    color: '#FF5E00',
-    zona: 'Colonia Reforma / San Felipe',
-    capacidadMaxima: 5,
-  },
-  {
-    id: 'veh-guadalupe',
-    driverId: 'drv-guadalupe',
-    driverName: 'Guadalupe Mariscal',
-    unit: 'Camión Isuzu #02',
-    type: 'CAMION',
-    icon: '🚚',
-    lat: 17.0340,
-    lng: -96.7220,
-    battery: 78,
-    speed: '28 km/h',
-    heading: 'SE Xoxocotlán',
-    color: '#38BDF8',
-    zona: 'Xoxocotlán / Candiani',
-    capacidadMaxima: 30,
-  },
-];
-
-const INITIAL_PACKAGES: PackageRecord[] = [
-  {
-    id: 'pkg-9482',
-    guia: 'ET-9482',
-    destinatario: 'BioPharma Express / Farmacias del Ahorro',
-    telefonoDestinatario: '+52 951 516 4020',
-    direccion: 'Av. Benito Juárez #302, Oaxaca Centro, 68000',
-    zona: 'Oaxaca Centro',
-    lat: 17.0650,
-    lng: -96.7225,
-    urgente: true,
-    estado: 'EN_RUTA',
-    repartidor: { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', unidad: 'Van Eléctrica #01' },
-    requiereRevision: false,
-    creadoEn: '2026-11-09T06:00:00Z',
-    actualizadoEn: '2026-11-09T08:30:00Z',
-    eta: '14:15 CST (12 min)',
-    progreso: 75,
-    notas: 'Entregar en recepción con sello de acuse y firma digital.',
-    eventos: [
-      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 6:00 a. m.', detalle: 'Paquete recibido en centro logístico Oaxaca' },
-      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 7:15 a. m.', detalle: 'Asignado a Xóchitl Ruiz' },
-      { tipo: 'EN_RUTA', ocurridoEn: '9 nov 2026, 8:30 a. m.', detalle: 'En camino a destino con ruta 2-opt Valles Centrales' }
-    ]
-  },
-  {
-    id: 'pkg-7103',
-    guia: 'ET-7103',
-    destinatario: 'OmniCloud Data Hub',
-    telefonoDestinatario: '+52 951 513 8890',
-    direccion: 'Calzada Porfirio Díaz #120, Col. Reforma, 68050',
-    zona: 'Colonia Reforma',
-    lat: 17.0782,
-    lng: -96.7135,
-    urgente: false,
-    estado: 'ASIGNADO',
-    repartidor: { id: 'drv-donato', nombre: 'Donato Aquino', unidad: 'Moto Ágil #03' },
-    requiereRevision: false,
-    creadoEn: '2026-11-09T06:30:00Z',
-    actualizadoEn: '2026-11-09T07:45:00Z',
-    eta: '15:30 CST (40 min)',
-    progreso: 30,
-    notas: 'Oficinas corporativas segundo piso.',
-    eventos: [
-      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 6:30 a. m.', detalle: 'Paquete recibido en centro logístico Oaxaca' },
-      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 7:45 a. m.', detalle: 'Asignado a Donato Aquino' }
-    ]
-  },
-  {
-    id: 'pkg-6320',
-    guia: 'ET-6320',
-    destinatario: 'Lic. Frida Cosijoeza Mendoza',
-    telefonoDestinatario: '+52 951 501 3344',
-    direccion: 'Calle Allende #108, Barrio de Jalatlaco, 68080 Oaxaca',
-    zona: 'Barrio de Jalatlaco',
-    lat: 17.0668,
-    lng: -96.7140,
-    urgente: true,
-    estado: 'REGISTRADO',
-    repartidor: null,
-    requiereRevision: false,
-    creadoEn: '2026-11-09T08:00:00Z',
-    actualizadoEn: '2026-11-09T08:00:00Z',
-    eta: 'Pendiente Chofer',
-    progreso: 10,
-    notas: 'Documentación legal urgente de notaría. Solicitar INE.',
-    eventos: [
-      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 8:00 a. m.', detalle: 'Paquete registrado y recibido en bodega' }
-    ]
-  },
-  {
-    id: 'pkg-5012',
-    guia: 'ET-5012',
-    destinatario: 'Residencia San Felipe / Ing. Pedro',
-    telefonoDestinatario: '+52 951 520 7711',
-    direccion: 'Av. Hidalgo #304, San Felipe del Agua, 68020 Oaxaca',
-    zona: 'San Felipe del Agua',
-    lat: 17.0950,
-    lng: -96.7050,
-    urgente: false,
-    estado: 'EN_RUTA',
-    repartidor: { id: 'drv-guadalupe', nombre: 'Guadalupe Mariscal', unidad: 'Camioneta Isuzu #02' },
-    requiereRevision: false,
-    creadoEn: '2026-11-09T05:45:00Z',
-    actualizadoEn: '2026-11-09T08:15:00Z',
-    eta: '14:05 CST (4 min)',
-    progreso: 85,
-    notas: 'Portón blanco junto a la parroquia de San Felipe.',
-    eventos: [
-      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 5:45 a. m.', detalle: 'Paquete recibido en centro logístico' },
-      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 7:00 a. m.', detalle: 'Asignado a Guadalupe Mariscal' },
-      { tipo: 'EN_RUTA', ocurridoEn: '9 nov 2026, 8:15 a. m.', detalle: 'En tránsito hacia San Felipe del Agua' }
-    ]
-  },
-  {
-    id: 'pkg-4219',
-    guia: 'ET-4219',
-    destinatario: 'Distribuidora del Valle Sur',
-    telefonoDestinatario: '+52 951 517 9900',
-    direccion: 'Calle Juárez #45, Santa Cruz Xoxocotlán, 71230',
-    zona: 'Santa Cruz Xoxocotlán',
-    lat: 17.0270,
-    lng: -96.7350,
-    urgente: false,
-    estado: 'ENTREGADO',
-    repartidor: { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', unidad: 'Van Eléctrica #01' },
-    requiereRevision: false,
-    creadoEn: '2026-11-09T05:30:00Z',
-    actualizadoEn: '2026-11-09T11:15:00Z',
-    eta: 'Entregado 11:15 a.m.',
-    progreso: 100,
-    notas: 'Entregado con firma digital y acuse de bodega.',
-    eventos: [
-      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 5:30 a. m.', detalle: 'Paquete recibido en centro logístico' },
-      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 6:45 a. m.', detalle: 'Asignado a Xóchitl Ruiz' },
-      { tipo: 'EN_RUTA', ocurridoEn: '9 nov 2026, 7:30 a. m.', detalle: 'En camino a Xoxocotlán' },
-      { tipo: 'ENTREGADO', ocurridoEn: '9 nov 2026, 11:15 a. m.', detalle: 'Entregado a encargado de almacén. Firma y foto registradas.', firma: true, foto: true }
-    ]
-  },
-  {
-    id: 'pkg-3840',
-    guia: 'ET-3840',
-    destinatario: 'Café La Brújula / Taller Gráfico',
-    telefonoDestinatario: '+52 951 516 1234',
-    direccion: 'Calle Macedonio Alcalá #407, Centro Histórico, 68000 Oaxaca',
-    zona: 'Oaxaca Centro',
-    lat: 17.0609,
-    lng: -96.7255,
-    urgente: true,
-    estado: 'FALLIDO',
-    repartidor: { id: 'drv-donato', nombre: 'Donato Aquino', unidad: 'Moto Ágil #03' },
-    requiereRevision: true,
-    creadoEn: '2026-11-09T07:00:00Z',
-    actualizadoEn: '2026-11-09T09:25:00Z',
-    eta: 'Requiere Revisión',
-    progreso: 20,
-    notas: 'Local comercial cerrado temporalmente por remodelación matutina.',
-    eventos: [
-      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 7:00 a. m.', detalle: 'Paquete recibido en centro logístico' },
-      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 7:30 a. m.', detalle: 'Asignado a Donato Aquino' },
-      { tipo: 'EN_RUTA', ocurridoEn: '9 nov 2026, 8:10 a. m.', detalle: 'En camino a Centro Histórico' },
-      { tipo: 'FALLIDO', ocurridoEn: '9 nov 2026, 9:25 a. m.', detalle: 'Intento fallido: Local cerrado / sin acceso en calle peatonal Alcalá', motivo: 'Cerrado por remodelación' }
-    ]
-  },
-  {
-    id: 'pkg-2915',
-    guia: 'ET-2915',
-    destinatario: 'Clínica del Valle / Insumos Quirúrgicos',
-    telefonoDestinatario: '+52 951 514 6677',
-    direccion: 'Av. Universidad #104, Ex-Hacienda Candiani, 68130 Oaxaca',
-    zona: 'Candiani / Universidad',
-    lat: 17.0420,
-    lng: -96.7160,
-    urgente: false,
-    estado: 'EN_RUTA',
-    repartidor: { id: 'drv-xochitl', nombre: 'Xóchitl Ruiz', unidad: 'Van Eléctrica #01' },
-    requiereRevision: false,
-    creadoEn: '2026-11-09T06:40:00Z',
-    actualizadoEn: '2026-11-09T08:45:00Z',
-    eta: '14:45 CST (28 min)',
-    progreso: 60,
-    notas: 'Dejar con encargado de farmacia hospitalaria.',
-    eventos: [
-      { tipo: 'CREADO', ocurridoEn: '9 nov 2026, 6:40 a. m.', detalle: 'Paquete recibido en centro logístico' },
-      { tipo: 'ASIGNADO', ocurridoEn: '9 nov 2026, 7:20 a. m.', detalle: 'Asignado a Xóchitl Ruiz' },
-      { tipo: 'EN_RUTA', ocurridoEn: '9 nov 2026, 8:45 a. m.', detalle: 'En camino a Candiani' }
-    ]
-  }
-];
-
 export const DispatcherDashboard: React.FC = () => {
   const { logout } = useAuth();
 
-  // Estados principales
-  const [packages, setPackages] = useState<PackageRecord[]>(INITIAL_PACKAGES);
-  const [drivers, setDrivers] = useState<DriverItem[]>(MOCK_DRIVERS_LIST);
+  // Datos administrados con TanStack Query
+  const { data: packages = INITIAL_PACKAGES } = usePackagesQuery();
+  const { data: drivers = [] } = useDriversQuery();
+
+  const createPackageMutation = useCreatePackageMutation();
+  const updatePackageMutation = useUpdatePackageMutation();
+  const assignPackageMutation = useAssignPackageMutation();
+  const unassignPackageMutation = useUnassignPackageMutation();
+  const reprogramPackageMutation = useReprogramPackageMutation();
+  const createDriverMutation = useCreateDriverMutation();
+  const updateDriverMutation = useUpdateDriverMutation();
+  const toggleDriverActiveMutation = useToggleDriverActiveMutation();
   
   // Pestaña Principal Superior (Consola Web Despacho, Radar Táctico y Rastreo Público)
   const [mainNavTab, setMainNavTab] = useState<'admin' | 'mapa' | 'tracking'>('admin');
@@ -322,57 +99,22 @@ export const DispatcherDashboard: React.FC = () => {
   };
 
   // Asignar rápidamente un paquete pendiente al vehículo inspeccionado
-  const handleQuickAssignToVehicle = (targetDriverId: string, packageId: string) => {
+  const handleQuickAssignToVehicle = async (targetDriverId: string, packageId: string) => {
     if (!packageId) return;
     const driverObj = drivers.find((d) => d.id === targetDriverId);
     if (!driverObj) return;
 
-    setPackages((prev) =>
-      prev.map((pkg) =>
-        pkg.id === packageId
-          ? {
-              ...pkg,
-              estado: 'ASIGNADO',
-              repartidor: { id: driverObj.id, nombre: driverObj.nombre, unidad: driverObj.unidad },
-              requiereRevision: false,
-              actualizadoEn: new Date().toISOString(),
-              eventos: [
-                ...pkg.eventos,
-                {
-                  tipo: 'ASIGNADO',
-                  ocurridoEn: new Date().toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-                  detalle: `Cargado a ${driverObj.nombre} (${driverObj.unidad})`
-                }
-              ]
-            }
-          : pkg
-      )
-    );
+    await assignPackageMutation.mutateAsync({
+      packageId,
+      driver: driverObj,
+      detailPrefix: 'Cargado a',
+    });
     setQuickAssignPackageId('');
   };
 
   // Descargar paquete a bodega (liberar capacidad del vehículo)
   const handleUnassignPackage = (packageId: string) => {
-    setPackages((prev) =>
-      prev.map((pkg) =>
-        pkg.id === packageId
-          ? {
-              ...pkg,
-              estado: 'REGISTRADO',
-              repartidor: null,
-              actualizadoEn: new Date().toISOString(),
-              eventos: [
-                ...pkg.eventos,
-                {
-                  tipo: 'ACTUALIZADO',
-                  ocurridoEn: new Date().toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-                  detalle: 'Descargado del vehículo a bodega para reasignación'
-                }
-              ]
-            }
-          : pkg
-      )
-    );
+    unassignPackageMutation.mutate(packageId);
   };
 
   // Escuchar evento personalizado desde el popup del mapa
@@ -442,37 +184,7 @@ export const DispatcherDashboard: React.FC = () => {
 
   // Alta de chofer
   const handleCreateDriver = async (values: DriverFormValues) => {
-    let createdId = `drv-${Date.now()}`;
-
-    try {
-      const response = await apiClient.post<{ id?: string }>('/users', {
-        nombre: values.nombre,
-        email: values.email,
-        password: values.password,
-        rol: 'REPARTIDOR',
-      });
-      if (response.data?.id) {
-        createdId = response.data.id;
-      }
-    } catch {
-      // Respaldo local si la API no está disponible
-    }
-
-    const newDriver: DriverItem = {
-      id: createdId,
-      nombre: values.nombre,
-      email: values.email,
-      unidad: values.unidad,
-      tipo: values.tipo,
-      telefono: values.telefono,
-      activo: true,
-      paquetesAsignados: 0,
-      capacidadMaxima: values.capacidadMaxima,
-      bateria: 100,
-      zona: values.zona,
-    };
-
-    setDrivers((prev) => [newDriver, ...prev]);
+    await createDriverMutation.mutateAsync(values);
     setIsNewDriverModalOpen(false);
     showFeedback(`Chofer ${values.nombre} registrado correctamente.`);
   };
@@ -480,51 +192,7 @@ export const DispatcherDashboard: React.FC = () => {
   // Editar chofer
   const handleUpdateDriver = async (values: DriverFormValues) => {
     if (!editingDriver) return;
-    const targetId = editingDriver.id;
-
-    try {
-      await apiClient.patch(`/users/${targetId}`, {
-        nombre: values.nombre,
-        email: values.email,
-        ...(values.password ? { password: values.password } : {}),
-      });
-    } catch {
-      // Respaldo local si la API no está disponible
-    }
-
-    setDrivers((prev) =>
-      prev.map((d) =>
-        d.id === targetId
-          ? {
-              ...d,
-              nombre: values.nombre,
-              email: values.email,
-              telefono: values.telefono,
-              unidad: values.unidad,
-              tipo: values.tipo,
-              capacidadMaxima: values.capacidadMaxima,
-              zona: values.zona,
-            }
-          : d
-      )
-    );
-
-    // Mantener sincronizados los datos del chofer en sus paquetes
-    setPackages((prev) =>
-      prev.map((pkg) =>
-        pkg.repartidor?.id === targetId
-          ? {
-              ...pkg,
-              repartidor: {
-                id: targetId,
-                nombre: values.nombre,
-                unidad: values.unidad,
-              },
-            }
-          : pkg
-      )
-    );
-
+    await updateDriverMutation.mutateAsync({ driverId: editingDriver.id, values });
     setEditingDriver(null);
     showFeedback(`Datos de ${values.nombre} actualizados.`);
   };
@@ -543,16 +211,7 @@ export const DispatcherDashboard: React.FC = () => {
     }
 
     const nextActive = !drv.activo;
-
-    try {
-      await apiClient.patch(`/users/${drv.id}`, { activo: nextActive });
-    } catch {
-      // Respaldo local si la API no está disponible
-    }
-
-    setDrivers((prev) =>
-      prev.map((d) => (d.id === drv.id ? { ...d, activo: nextActive } : d))
-    );
+    await toggleDriverActiveMutation.mutateAsync({ driverId: drv.id, nextActive });
 
     showFeedback(
       nextActive
@@ -818,138 +477,22 @@ export const DispatcherDashboard: React.FC = () => {
   // Crear paquete
   const handleCreatePackage = async (values: PackageFormValues) => {
     const driverObj = values.driverId ? drivers.find((d) => d.id === values.driverId) : undefined;
-    let createdId = `pkg-${Date.now()}`;
-    let createdGuia = `ET-${Math.floor(100000 + Math.random() * 900000)}`;
-    const timestampLabel = new Date().toLocaleDateString('es-MX', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    try {
-      const response = await apiClient.post<{ id?: string; guia?: string }>('/packages', {
-        destinatario: values.destinatario,
-        telefonoDestinatario: values.telefonoDestinatario || undefined,
-        direccion: values.direccion,
-        referencias: values.referencias || undefined,
-        lat: values.lat,
-        lng: values.lng,
-        urgente: values.urgente,
-      });
-
-      if (response.data?.id) createdId = response.data.id;
-      if (response.data?.guia) createdGuia = response.data.guia;
-
-      if (driverObj) {
-        await apiClient.post(`/packages/${createdId}/assignment`, {
-          repartidorId: driverObj.id,
-        });
-      }
-    } catch {
-      // Estado local si la API no está disponible
-    }
-
-    const eventos: PackageRecord['eventos'] = [
-      {
-        tipo: 'CREADO',
-        ocurridoEn: timestampLabel,
-        detalle: `Paquete recibido en centro logístico (${values.zona})`,
-      },
-    ];
-
-    if (driverObj) {
-      eventos.push({
-        tipo: 'ASIGNADO',
-        ocurridoEn: timestampLabel,
-        detalle: `Asignado a ${driverObj.nombre} (${driverObj.unidad})`,
-      });
-    }
-
-    const newPkg: PackageRecord = {
-      id: createdId,
-      guia: createdGuia,
-      destinatario: values.destinatario,
-      telefonoDestinatario: values.telefonoDestinatario || 'Sin teléfono',
-      direccion: values.direccion,
-      zona: values.zona,
-      lat: values.lat,
-      lng: values.lng,
-      urgente: values.urgente,
-      estado: driverObj ? 'ASIGNADO' : 'REGISTRADO',
-      repartidor: driverObj
-        ? { id: driverObj.id, nombre: driverObj.nombre, unidad: driverObj.unidad }
-        : null,
-      requiereRevision: false,
-      creadoEn: new Date().toISOString(),
-      actualizadoEn: new Date().toISOString(),
-      eta: driverObj ? 'En preparación' : 'Pendiente Chofer',
-      progreso: driverObj ? 25 : 10,
-      referencias: values.referencias,
-      notas: values.referencias,
-      eventos,
-    };
-
-    setPackages((prev) => [newPkg, ...prev]);
+    const newPkg = await createPackageMutation.mutateAsync({ values, driver: driverObj });
     setIsNewPackageModalOpen(false);
-    showFeedback(`Guía ${createdGuia} registrada correctamente (${values.zona}).`);
+    showFeedback(`Guía ${newPkg.guia} registrada correctamente (${values.zona}).`);
   };
 
   // Editar paquete
   const handleUpdatePackage = async (values: PackageFormValues) => {
     if (!editingPackage) return;
-
-    const targetId = editingPackage.id;
-    const targetGuia = editingPackage.guia;
-    const nowIso = new Date().toISOString();
-    const timestampLabel = new Date().toLocaleDateString('es-MX', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    const updatedPkg = await updatePackageMutation.mutateAsync({
+      existing: editingPackage,
+      values,
     });
-
-    try {
-      await apiClient.patch(`/packages/${targetId}`, {
-        destinatario: values.destinatario,
-        telefonoDestinatario: values.telefonoDestinatario || undefined,
-        direccion: values.direccion,
-        referencias: values.referencias || undefined,
-        lat: values.lat,
-        lng: values.lng,
-        urgente: values.urgente,
-      });
-    } catch {
-      // Estado local si la API no está disponible
-    }
-
-    const updatedPkg: PackageRecord = {
-      ...editingPackage,
-      destinatario: values.destinatario,
-      telefonoDestinatario: values.telefonoDestinatario || 'Sin teléfono',
-      direccion: values.direccion,
-      zona: values.zona,
-      lat: values.lat,
-      lng: values.lng,
-      urgente: values.urgente,
-      referencias: values.referencias,
-      notas: values.referencias,
-      actualizadoEn: nowIso,
-      eventos: [
-        ...editingPackage.eventos,
-        {
-          tipo: 'ACTUALIZADO',
-          ocurridoEn: timestampLabel,
-          detalle: `Datos de entrega actualizados (${values.zona} • ${values.lat.toFixed(4)}, ${values.lng.toFixed(4)})`,
-        },
-      ],
-    };
-
-    setPackages((prev) => prev.map((pkg) => (pkg.id === targetId ? updatedPkg : pkg)));
-    setSelectedDetailPackage((prev) => (prev?.id === targetId ? updatedPkg : prev));
-    setActiveTrackingPackage((prev) => (prev?.id === targetId ? updatedPkg : prev));
+    setSelectedDetailPackage((prev) => (prev?.id === updatedPkg.id ? updatedPkg : prev));
+    setActiveTrackingPackage((prev) => (prev?.id === updatedPkg.id ? updatedPkg : prev));
     setEditingPackage(null);
-    showFeedback(`Cambios guardados en la guía ${targetGuia}.`);
+    showFeedback(`Cambios guardados en la guía ${updatedPkg.guia}.`);
   };
 
   // Reasignar chofer
@@ -958,30 +501,10 @@ export const DispatcherDashboard: React.FC = () => {
     const targetDriver = drivers.find((d) => d.id === selectedDriverForReassign);
     if (!targetDriver) return;
 
-    try {
-      await apiClient.post(`/packages/${reassignPackage.id}/assignment`, {
-        repartidorId: targetDriver.id,
-      });
-    } catch {
-      // Estado local si la API no está disponible
-    }
-
-    setPackages((prev) =>
-      prev.map((pkg) =>
-        pkg.id === reassignPackage.id
-          ? {
-              ...pkg,
-              repartidor: { id: targetDriver.id, nombre: targetDriver.nombre, unidad: targetDriver.unidad },
-              estado: pkg.estado === 'REGISTRADO' || pkg.estado === 'FALLIDO' ? 'ASIGNADO' : pkg.estado,
-              actualizadoEn: new Date().toISOString(),
-              eventos: [
-                ...pkg.eventos,
-                { tipo: 'ASIGNADO', ocurridoEn: new Date().toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }), detalle: `Reasignado a ${targetDriver.nombre}` }
-              ]
-            }
-          : pkg
-      )
-    );
+    await assignPackageMutation.mutateAsync({
+      packageId: reassignPackage.id,
+      driver: targetDriver,
+    });
     showFeedback(`Guía ${reassignPackage.guia} asignada a ${targetDriver.nombre}.`);
     setReassignPackage(null);
   };
@@ -1329,11 +852,7 @@ export const DispatcherDashboard: React.FC = () => {
 
                                 {isFailed && (
                                   <button
-                                    onClick={() => {
-                                      setPackages((prev) =>
-                                        prev.map((p) => (p.id === pkg.id ? { ...p, estado: 'ASIGNADO', requiereRevision: false } : p))
-                                      );
-                                    }}
+                                    onClick={() => reprogramPackageMutation.mutate(pkg.id)}
                                     className="px-2.5 py-1 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-700 text-rose-300 text-[11px] font-semibold transition"
                                   >
                                     Reprogramar
